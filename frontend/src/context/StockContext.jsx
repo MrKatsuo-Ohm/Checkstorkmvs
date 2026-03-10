@@ -16,8 +16,8 @@ export function StockProvider({ children }) {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await stockApi.getAll();
-      setItems(res.data.data); // 🔥 แก้ตรงนี้
+      const data = await stockApi.getAll();
+      setItems(Array.isArray(data) ? data : []); // ✅ แก้แล้ว
     } catch (err) {
       showToast("โหลดข้อมูลไม่สำเร็จ", "error");
     } finally {
@@ -33,8 +33,8 @@ export function StockProvider({ children }) {
       }
       setLoading(true);
       try {
-        const res = await stockApi.create(data);
-        setItems((prev) => [...prev, res.data]);
+        const newItem = await stockApi.create(data);
+        setItems((prev) => [...prev, newItem]);
         showToast("เพิ่มสินค้าสำเร็จ!", "success");
         return true;
       } catch (err) {
@@ -51,8 +51,8 @@ export function StockProvider({ children }) {
     async (id, data) => {
       setLoading(true);
       try {
-        const res = await stockApi.update(id, data);
-        setItems((prev) => prev.map((i) => (i.id === id ? res.data : i)));
+        const updated = await stockApi.update(id, data);
+        setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
         showToast("บันทึกการแก้ไขสำเร็จ!", "success");
         return true;
       } catch (err) {
