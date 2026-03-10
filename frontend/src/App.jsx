@@ -24,7 +24,10 @@ function AppContent() {
   const { fetchItems, toast } = useStock()
   const { currentUser } = useUser()
 
-  useEffect(() => { fetchItems() }, [fetchItems])
+  // ✅ fetch เฉพาะตอน login แล้วเท่านั้น
+  useEffect(() => {
+    if (currentUser) fetchItems()
+  }, [currentUser, fetchItems])
 
   const handleSearch = (val) => {
     setSearch(val)
