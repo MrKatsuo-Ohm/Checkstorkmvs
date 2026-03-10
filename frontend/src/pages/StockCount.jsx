@@ -208,7 +208,7 @@ export default function StockCount() {
 
       {/* Step 3: นับรายการ */}
       {step === 'count' && (
-        <div className="flex gap-5 flex-1 overflow-hidden min-h-0">
+        <div className="flex flex-col lg:flex-row gap-5 flex-1 overflow-hidden min-h-0">
 
           {/* รายการ */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -310,7 +310,7 @@ export default function StockCount() {
           </div>
 
           {/* Panel ขวา */}
-          <div className="w-72 shrink-0 flex flex-col gap-3">
+          <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3">
             <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col gap-3 flex-1 overflow-hidden">
               <h3 className="font-bold text-base shrink-0">สรุปการนับ</h3>
 
