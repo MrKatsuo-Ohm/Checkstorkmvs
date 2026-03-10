@@ -1,20 +1,17 @@
-const BASE = '/api/stock'
+const API_URL = "https://checkstorkmvs-1.onrender.com";
 
-async function request(url, options = {}) {
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Request failed')
-  return data
-}
+export const getStock = async () => {
+  const res = await fetch(`${API_URL}/api/stock`);
+  return res.json();
+};
 
-export const stockApi = {
-  getAll: () => request(BASE),
-  getById: (id) => request(`${BASE}/${id}`),
-  getStats: () => request(`${BASE}/stats`),
-  create: (body) => request(BASE, { method: 'POST', body: JSON.stringify(body) }),
-  update: (id, body) => request(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-  delete: (id) => request(`${BASE}/${id}`, { method: 'DELETE' })
-}
+export const addStock = async (data) => {
+  const res = await fetch(`${API_URL}/api/stock`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+};
