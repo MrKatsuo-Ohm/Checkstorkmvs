@@ -24,7 +24,6 @@ function AppContent() {
   const { fetchItems, toast } = useStock()
   const { currentUser } = useUser()
 
-  // ✅ fetch เฉพาะตอน login แล้วเท่านั้น
   useEffect(() => {
     if (currentUser) fetchItems()
   }, [currentUser, fetchItems])
@@ -53,7 +52,7 @@ function AppContent() {
     <div className="flex h-screen bg-slate-900 text-white overflow-hidden">
       <Sidebar currentView={view} onNavigate={setView} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header
           search={search}
           onSearch={handleSearch}
@@ -62,7 +61,11 @@ function AppContent() {
           onAdd={() => setEditingItem('new')}
           onMenuToggle={() => setMobileOpen(o => !o)}
         />
-        <main className={`flex-1 overflow-hidden p-6 ${view === 'count' ? 'flex flex-col' : 'overflow-auto'}`}>
+        <main className={`flex-1 p-4 md:p-6 ${
+          view === 'count'
+            ? 'overflow-hidden flex flex-col'
+            : 'overflow-y-auto'
+        }`}>
           {renderPage()}
         </main>
       </div>

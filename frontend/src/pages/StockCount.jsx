@@ -14,7 +14,7 @@ export default function StockCount() {
   const { currentUser } = useUser()
   const { addHistoryEntry } = useHistory()
 
-  const [step, setStep] = useState('category')   // 'category' | 'subcategory' | 'count'
+  const [step, setStep] = useState('category')
   const [selectedCat, setSelectedCat] = useState(null)
   const [selectedSub, setSelectedSub] = useState(null)
   const [counts, setCounts] = useState({})
@@ -113,7 +113,7 @@ export default function StockCount() {
     <div className="flex flex-col h-full gap-0">
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-5 text-sm">
+      <div className="flex items-center gap-2 mb-4 text-sm flex-wrap">
         <ClipboardCheck className="w-5 h-5 text-blue-400 shrink-0" />
         <button
           onClick={() => setStep('category')}
@@ -157,13 +157,13 @@ export default function StockCount() {
                 <button
                   key={key}
                   onClick={() => handleSelectCat(key)}
-                  className="flex flex-col items-start gap-3 p-5 bg-slate-800 border border-slate-700 hover:border-blue-500 hover:bg-slate-700/80 rounded-2xl transition-all text-left group"
+                  className="flex flex-col items-start gap-2 p-4 bg-slate-800 border border-slate-700 hover:border-blue-500 hover:bg-slate-700/80 rounded-2xl transition-all text-left group"
                 >
-                  <div className="w-12 h-12 bg-blue-500/10 group-hover:bg-blue-500/20 rounded-xl flex items-center justify-center transition-colors">
-                    <Icon className="w-6 h-6 text-blue-400" />
+                  <div className="w-10 h-10 bg-blue-500/10 group-hover:bg-blue-500/20 rounded-xl flex items-center justify-center transition-colors">
+                    <Icon className="w-5 h-5 text-blue-400" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-white">{cat.name}</p>
+                    <p className="font-semibold text-white text-sm">{cat.name}</p>
                     <p className="text-xs text-slate-400 mt-0.5">{catItems.length} รายการ · {totalQty} ชิ้น</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-blue-400 self-end transition-colors" />
@@ -180,7 +180,6 @@ export default function StockCount() {
           <button onClick={handleBack} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm mb-4 transition-colors">
             <ChevronLeft className="w-4 h-4" /> กลับ
           </button>
-          <p className="text-slate-400 text-sm mb-4">เลือกหมวดย่อยที่จะนับ</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {subCatsWithItems.map(sub => {
               const subItems = items.filter(i => i.category === selectedCat && i.subcategory === sub)
@@ -206,17 +205,17 @@ export default function StockCount() {
         </div>
       )}
 
-      {/* Step 3: นับรายการ */}
+      {/* Step 3: นับรายการ - ✅ flex-col on mobile, flex-row on desktop */}
       {step === 'count' && (
-        <div className="flex flex-col lg:flex-row gap-5 flex-1 overflow-hidden min-h-0">
+        <div className="flex flex-col lg:flex-row gap-4 flex-1 overflow-hidden min-h-0">
 
           {/* รายการ */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
               <button onClick={handleBack} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm transition-colors shrink-0">
                 <ChevronLeft className="w-4 h-4" /> กลับ
               </button>
-              <div className="relative flex-1 max-w-xs">
+              <div className="relative flex-1 min-w-[140px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="text"
@@ -246,18 +245,18 @@ export default function StockCount() {
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-colors ${
                       isChanged
                         ? 'bg-amber-500/5 border-amber-500/30'
                         : 'bg-slate-800/60 border-slate-700/60'
                     }`}
                   >
-                    <span className="text-slate-600 text-xs w-6 shrink-0 text-right">{idx + 1}</span>
+                    <span className="text-slate-600 text-xs w-5 shrink-0 text-right">{idx + 1}</span>
 
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium leading-tight truncate">{item.name}</p>
                       {item.product_code && (
-                        <p className="text-xs text-slate-500 font-mono mt-0.5">#{item.product_code}</p>
+                        <p className="text-xs text-slate-500 font-mono mt-0.5 hidden sm:block">#{item.product_code}</p>
                       )}
                     </div>
 
@@ -266,12 +265,12 @@ export default function StockCount() {
                       <p className="text-sm font-semibold text-slate-300">{item.quantity}</p>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => adjust(item.id, -1)}
-                        className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-red-500/30 hover:text-red-400 rounded-lg transition-colors"
+                        className="w-7 h-7 flex items-center justify-center bg-slate-700 hover:bg-red-500/30 hover:text-red-400 rounded-lg transition-colors"
                       >
-                        <Minus className="w-3.5 h-3.5" />
+                        <Minus className="w-3 h-3" />
                       </button>
 
                       <input
@@ -279,7 +278,7 @@ export default function StockCount() {
                         min="0"
                         value={cur}
                         onChange={e => setCount(item.id, e.target.value)}
-                        className={`w-16 text-center py-1.5 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 border transition-colors ${
+                        className={`w-14 text-center py-1.5 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 border transition-colors ${
                           isChanged
                             ? 'bg-amber-500/10 border-amber-500/40 text-amber-300'
                             : 'bg-slate-700 border-slate-600 text-white'
@@ -288,13 +287,13 @@ export default function StockCount() {
 
                       <button
                         onClick={() => adjust(item.id, 1)}
-                        className="w-8 h-8 flex items-center justify-center bg-slate-700 hover:bg-emerald-500/30 hover:text-emerald-400 rounded-lg transition-colors"
+                        className="w-7 h-7 flex items-center justify-center bg-slate-700 hover:bg-emerald-500/30 hover:text-emerald-400 rounded-lg transition-colors"
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Plus className="w-3 h-3" />
                       </button>
                     </div>
 
-                    <div className="w-10 text-right shrink-0">
+                    <div className="w-8 text-right shrink-0">
                       {isChanged ? (
                         <span className={`text-xs font-bold ${diff > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           {diff > 0 ? `+${diff}` : diff}
@@ -309,37 +308,37 @@ export default function StockCount() {
             </div>
           </div>
 
-          {/* Panel ขวา */}
+          {/* Panel สรุป - ✅ full width on mobile, fixed width on desktop */}
           <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col gap-3 flex-1 overflow-hidden">
-              <h3 className="font-bold text-base shrink-0">สรุปการนับ</h3>
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col gap-3">
+              <h3 className="font-bold text-base">สรุปการนับ</h3>
 
-              <div className="space-y-2 text-sm shrink-0">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">หมวดย่อย</span>
-                  <span className="font-medium text-blue-300 text-right max-w-[160px] truncate">{selectedSub}</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 text-sm">
+                <div className="bg-slate-700/50 rounded-xl p-3">
+                  <p className="text-xs text-slate-400">หมวดย่อย</p>
+                  <p className="font-medium text-blue-300 text-sm mt-0.5 truncate">{selectedSub}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">รายการทั้งหมด</span>
-                  <span className="font-medium">{listItems.length} รายการ</span>
+                <div className="bg-slate-700/50 rounded-xl p-3">
+                  <p className="text-xs text-slate-400">รายการทั้งหมด</p>
+                  <p className="font-medium mt-0.5">{listItems.length} รายการ</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">เปลี่ยนแปลง</span>
-                  <span className={`font-medium ${changedItems.length > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+                <div className="bg-slate-700/50 rounded-xl p-3">
+                  <p className="text-xs text-slate-400">เปลี่ยนแปลง</p>
+                  <p className={`font-medium mt-0.5 ${changedItems.length > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
                     {changedItems.length} รายการ
-                  </span>
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">ตรงกัน</span>
-                  <span className="font-medium text-emerald-400">{listItems.length - changedItems.length} รายการ</span>
+                <div className="bg-slate-700/50 rounded-xl p-3">
+                  <p className="text-xs text-slate-400">ตรงกัน</p>
+                  <p className="font-medium text-emerald-400 mt-0.5">{listItems.length - changedItems.length} รายการ</p>
                 </div>
               </div>
 
-              {/* รายการต่าง */}
+              {/* รายการต่าง - แสดงบน mobile ด้วย */}
               {changedItems.length > 0 && (
-                <div className="border-t border-slate-700 pt-3 flex flex-col overflow-hidden flex-1">
-                  <p className="text-xs text-slate-500 mb-2 shrink-0">รายการที่ต่างจากระบบ</p>
-                  <div className="overflow-y-auto space-y-1.5 flex-1">
+                <div className="border-t border-slate-700 pt-3">
+                  <p className="text-xs text-slate-500 mb-2">รายการที่ต่างจากระบบ</p>
+                  <div className="max-h-32 overflow-y-auto space-y-1.5">
                     {changedItems.map(item => {
                       const diff = counts[item.id] - item.quantity
                       return (
@@ -358,7 +357,7 @@ export default function StockCount() {
                 </div>
               )}
 
-              <div className="shrink-0 space-y-2 border-t border-slate-700 pt-3">
+              <div className="space-y-2 border-t border-slate-700 pt-3">
                 <input
                   type="text"
                   value={note}
@@ -393,12 +392,11 @@ export default function StockCount() {
             </div>
 
             {savedCount > 0 && (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3 shrink-0">
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3">
                 <div className="flex items-center gap-2 text-emerald-400 font-medium text-sm">
                   <CheckCircle2 className="w-4 h-4" />
                   บันทึกแล้ว {savedCount} รายการ
                 </div>
-                <p className="text-slate-500 text-xs mt-1">บันทึกในประวัติการนับแล้ว</p>
               </div>
             )}
           </div>
