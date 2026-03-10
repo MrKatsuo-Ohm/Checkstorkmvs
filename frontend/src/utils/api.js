@@ -3,7 +3,8 @@ const API_URL = ""
 export const stockApi = {
   getAll: async () => {
     const res = await fetch(`${API_URL}/api/stock`)
-    return res.json()
+    const json = await res.json()
+    return json.data ?? json
   },
 
   create: async (data) => {
@@ -12,7 +13,8 @@ export const stockApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     })
-    return res.json()
+    const json = await res.json()
+    return json.data ?? json
   },
 
   update: async (id, data) => {
@@ -21,13 +23,15 @@ export const stockApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     })
-    return res.json()
+    const json = await res.json()
+    return json.data ?? json
   },
 
   delete: async (id) => {
     const res = await fetch(`${API_URL}/api/stock/${id}`, {
       method: "DELETE"
     })
-    return res.json()
+    const json = await res.json()
+    return json.data ?? json
   }
 }
