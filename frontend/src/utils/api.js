@@ -1,4 +1,4 @@
-const API_URL = "https://checkstorkmvs-1.onrender.com"
+const API_URL = ""
 
 export const stockApi = {
   getAll: async () => {
