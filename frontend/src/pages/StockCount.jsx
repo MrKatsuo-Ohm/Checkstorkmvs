@@ -297,63 +297,81 @@ export default function StockCount() {
 
                 return (
                   <div
-  key={item.id}
-  className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-3 rounded-xl border transition-colors ${
-    isChanged
-      ? 'bg-amber-500/5 border-amber-500/30'
-      : 'bg-slate-800/60 border-slate-700/60'
-  }`}
->
-  {/* แถวบน: เลขลำดับ + ชื่อ */}
-  <div className="flex items-center gap-2 flex-1 min-w-0">
-    <span className="text-slate-600 text-xs w-5 shrink-0 text-right">{idx + 1}</span>
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium leading-tight">{item.name}</p>
-      {item.product_code && (
-        <p className="text-xs text-slate-500 font-mono mt-0.5">#{item.product_code}</p>
-      )}
-    </div>
-  </div>
+                    key={item.id}
+                    className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-3 rounded-xl border transition-colors ${
+                      isChanged
+                        ? "bg-amber-500/5 border-amber-500/30"
+                        : "bg-slate-800/60 border-slate-700/60"
+                    }`}
+                  >
+                    {/* แถวบน: เลขลำดับ + ชื่อ */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-slate-600 text-xs w-5 shrink-0 text-right">
+                        {idx + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-tight">
+                          {item.name}
+                        </p>
+                        {item.product_code && (
+                          <p className="text-xs text-slate-500 font-mono mt-0.5">
+                            #{item.product_code}
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-  {/* แถวล่าง (mobile) / ขวา (desktop): จำนวนระบบ + ปุ่ม + diff */}
-  <div className="flex items-center gap-2 justify-between sm:justify-end">
-    <div className="text-right shrink-0 hidden sm:block">
-      <p className="text-xs text-slate-500">ระบบ</p>
-      <p className="text-sm font-semibold text-slate-300">{item.quantity}</p>
-    </div>
-    <span className="text-xs text-slate-500 sm:hidden">ระบบ: {item.quantity}</span>
+                    {/* แถวล่าง (mobile) / ขวา (desktop): จำนวนระบบ + ปุ่ม + diff */}
+                    <div className="flex items-center gap-2 justify-between sm:justify-end">
+                      <div className="text-right shrink-0 hidden sm:block">
+                        <p className="text-xs text-slate-500">ระบบ</p>
+                        <p className="text-sm font-semibold text-slate-300">
+                          {item.quantity}
+                        </p>
+                      </div>
+                      <span className="text-xs text-slate-500 sm:hidden">
+                        ระบบ: {item.quantity}
+                      </span>
 
-    <div className="flex items-center gap-1 shrink-0">
-      <button onClick={() => adjust(item.id, -1)}
-        className="w-7 h-7 flex items-center justify-center bg-slate-700 hover:bg-red-500/30 hover:text-red-400 rounded-lg transition-colors">
-        <Minus className="w-3 h-3" />
-      </button>
-      <input
-        type="number" min="0" value={cur}
-        onChange={e => setCount(item.id, e.target.value)}
-        className={`w-14 text-center py-1.5 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 border transition-colors ${
-          isChanged
-            ? 'bg-amber-500/10 border-amber-500/40 text-amber-300'
-            : 'bg-slate-700 border-slate-600 text-white'
-        }`}
-      />
-      <button onClick={() => adjust(item.id, 1)}
-        className="w-7 h-7 flex items-center justify-center bg-slate-700 hover:bg-emerald-500/30 hover:text-emerald-400 rounded-lg transition-colors">
-        <Plus className="w-3 h-3" />
-      </button>
-    </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => adjust(item.id, -1)}
+                          className="w-7 h-7 flex items-center justify-center bg-slate-700 hover:bg-red-500/30 hover:text-red-400 rounded-lg transition-colors"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          value={cur}
+                          onChange={(e) => setCount(item.id, e.target.value)}
+                          className={`w-14 text-center py-1.5 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 border transition-colors ${
+                            isChanged
+                              ? "bg-amber-500/10 border-amber-500/40 text-amber-300"
+                              : "bg-slate-700 border-slate-600 text-white"
+                          }`}
+                        />
+                        <button
+                          onClick={() => adjust(item.id, 1)}
+                          className="w-7 h-7 flex items-center justify-center bg-slate-700 hover:bg-emerald-500/30 hover:text-emerald-400 rounded-lg transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
 
-    <div className="w-8 text-right shrink-0">
-      {isChanged ? (
-        <span className={`text-xs font-bold ${diff > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-          {diff > 0 ? `+${diff}` : diff}
-        </span>
-      ) : (
-        <CheckCircle2 className="w-4 h-4 text-slate-700 ml-auto" />
-      )}
-    </div>
-  </div>
-</div>
+                      <div className="w-8 text-right shrink-0">
+                        {isChanged ? (
+                          <span
+                            className={`text-xs font-bold ${diff > 0 ? "text-emerald-400" : "text-red-400"}`}
+                          >
+                            {diff > 0 ? `+${diff}` : diff}
+                          </span>
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4 text-slate-700 ml-auto" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </div>
