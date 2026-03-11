@@ -33,9 +33,9 @@ export default function StockCount() {
   const [savedCount, setSavedCount] = useState(0);
   const [searchQ, setSearchQ] = useState("");
 
-  const listItems = items.filter(i =>
-  i.category === selectedCat && i.subcategory === selectedSub // ✅ กลับมาเหมือนเดิม
-)
+  const listItems = items.filter(
+    (i) => i.category === selectedCat && i.subcategory === selectedSub, // ✅ กลับมาเหมือนเดิม
+  );
 
   const filtered = searchQ.trim()
     ? listItems.filter(
@@ -81,14 +81,18 @@ export default function StockCount() {
   };
 
   const handleSelectSub = (sub) => {
-  setSelectedSub(sub)
-  setSearchQ('')
-  const subItems = items.filter(i => i.category === selectedCat && i.subcategory === sub)
-  const init = {}
-  subItems.forEach(i => { init[i.id] = i.quantity }) // ✅ init ทุก item
-  setCounts(init) // ✅ replace ไม่ใช่ merge
-  setStep('count')
-}
+    setSelectedSub(sub);
+    setSearchQ("");
+    const subItems = items.filter(
+      (i) => i.category === selectedCat && i.subcategory === sub,
+    );
+    const init = {};
+    subItems.forEach((i) => {
+      init[i.id] = i.quantity;
+    }); // ✅ init ทุก item
+    setCounts(init); // ✅ replace ไม่ใช่ merge
+    setStep("count");
+  };
 
   const handleBack = () => {
     if (step === "count") {
@@ -382,7 +386,11 @@ export default function StockCount() {
                 <div className="bg-slate-700/50 rounded-xl p-3">
                   <p className="text-xs text-slate-400">รายการทั้งหมด</p>
                   <p className="font-medium mt-0.5">
-                    {listItems.length} รายการ
+                    {listItems.reduce(
+                      (s, i) => s + (counts[i.id] ?? i.quantity),
+                      0,
+                    )}{" "}
+                    ชิ้น
                   </p>
                 </div>
                 <div className="bg-slate-700/50 rounded-xl p-3">
