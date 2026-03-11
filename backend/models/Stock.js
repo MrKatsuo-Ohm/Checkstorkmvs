@@ -998,8 +998,8 @@ const seedData = [
   item('8101510680','CABLE LAN UGREEN CAT.7 3M 2-Y',1,'networking','สาย LAN'),
   item('8101510681','CABLE LAN UGREEN CAT.7 5M 2-Y',1,'networking','สาย LAN'),
   item('1042000238','CABLE LAN UGREEN NW343 CAT.8 3M 2-Y',2,'networking','สาย LAN'),
-  item('8101510642','CABLE BRILLIANT LAN UTP CAT6E BLACK 10M 1-Y',1,'accessories','สาย LAN'),
-  item('8101510644','CABLE BRILLIANT LAN UTP CAT6E BLACK 20M 1-Y',4,'accessories','สาย LAN'),
+  item('8101510642','CABLE BRILLIANT LAN UTP CAT6E BLACK 10M 1-Y',1,'networking','สาย LAN'),
+  item('8101510644','CABLE BRILLIANT LAN UTP CAT6E BLACK 20M 1-Y',4,'networking','สาย LAN'),
 
   // ── Gaming Chair ──────────────────────────────────────
   item('1104000032','CHAIR ANDA SEAT PHANTOM 3 XL BLACK 6-Y',1,'accessories','อื่นๆ'),
