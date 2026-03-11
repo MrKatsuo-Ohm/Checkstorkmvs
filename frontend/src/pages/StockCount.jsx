@@ -23,9 +23,7 @@ export default function StockCount() {
   const [savedCount, setSavedCount] = useState(0)
   const [searchQ, setSearchQ] = useState('')
 
-  const listItems = items.filter(i =>
-    i.category === selectedCat && i.subcategory === selectedSub
-  )
+  const listItems = items.filter(i => i.category === selectedCat)
 
   const filtered = searchQ.trim()
     ? listItems.filter(i =>
@@ -57,7 +55,7 @@ export default function StockCount() {
     setSelectedSub(null)
     setCounts({})
     setSavedCount(0)
-    setStep('subcategory')
+    setStep('count')
   }
 
   const handleSelectSub = (sub) => {
@@ -96,7 +94,7 @@ export default function StockCount() {
           priceBefore: item.price,
           priceAfter: item.price,
           counter: currentUser?.name || 'ไม่ระบุ',
-          note: note || `นับสต๊อก ${categories[selectedCat]?.name} > ${selectedSub}`
+          note: note || `นับสต๊อก ${categories[selectedCat]?.name}`
         })
         saved++
       }
