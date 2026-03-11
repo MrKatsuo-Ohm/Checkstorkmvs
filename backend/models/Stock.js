@@ -782,8 +782,7 @@ const seedData = [
   item('1062000432','CHARGER UGREEN X606 RETRACTABLE GAN 100W 2-Y',2,'accessories','Adapter Smartphone'),
 
   // ── Cable ─────────────────────────────────────────────
-  item('8101510642','CABLE BRILLIANT LAN UTP CAT6E BLACK 10M 1-Y',1,'accessories','Cable'),
-  item('8101510644','CABLE BRILLIANT LAN UTP CAT6E BLACK 20M 1-Y',4,'accessories','Cable'),
+  
   item('1042000018','CABLE HP DISPLAYPORT TO HDMI 3M 2-Y',3,'accessories','Cable'),
   item('1042000024','CABLE HP HDMI TO HDMI 2.1 1M 2-Y',1,'accessories','Cable'),
   item('1042000246','CABLE PHILIPS AC POWER SPC1100BA 1.8M 1-Y',4,'accessories','Cable'),
@@ -999,6 +998,8 @@ const seedData = [
   item('8101510680','CABLE LAN UGREEN CAT.7 3M 2-Y',1,'networking','สาย LAN'),
   item('8101510681','CABLE LAN UGREEN CAT.7 5M 2-Y',1,'networking','สาย LAN'),
   item('1042000238','CABLE LAN UGREEN NW343 CAT.8 3M 2-Y',2,'networking','สาย LAN'),
+  item('8101510642','CABLE BRILLIANT LAN UTP CAT6E BLACK 10M 1-Y',1,'accessories','Cable'),
+  item('8101510644','CABLE BRILLIANT LAN UTP CAT6E BLACK 20M 1-Y',4,'accessories','Cable'),
 
   // ── Gaming Chair ──────────────────────────────────────
   item('1104000032','CHAIR ANDA SEAT PHANTOM 3 XL BLACK 6-Y',1,'accessories','อื่นๆ'),
