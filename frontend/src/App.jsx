@@ -14,6 +14,7 @@ import LowStock from './pages/LowStock'
 import Reports from './pages/Reports'
 import StockHistory from './pages/StockHistory'
 import StockCount from './pages/StockCount'
+import CountSummary from './pages/CountSummary'
 
 function AppContent() {
   const [view, setView] = useState('dashboard')
@@ -40,6 +41,7 @@ function AppContent() {
       case 'add': return <AddForm onSuccess={() => setView('inventory')} />
       case 'low-stock': return <LowStock onEdit={setEditingItem} />
       case 'count': return <StockCount />
+      case 'count-summary': return <CountSummary />
       case 'history': return <StockHistory />
       case 'reports': return <Reports />
       default: return <Dashboard onNavigate={setView} onFilterCategory={setFilterCategory} />

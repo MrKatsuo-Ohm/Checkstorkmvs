@@ -44,9 +44,9 @@ export const categories = {
     icon: 'Printer',
     subcategories: ['Printer', 'Toner/Ink', 'Scanner']
   },
-  Other : {
+  misc : {
     name: 'อุปกรณ์อื่นๆ',
-    icon: 'Other ',
+    icon: 'MoreHorizontal ',
     subcategories: ['อื่นๆ']
   }
 }
