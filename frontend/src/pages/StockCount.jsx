@@ -379,113 +379,81 @@ export default function StockCount() {
 
           {/* Panel สรุป - ✅ full width on mobile, fixed width on desktop */}
           <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col gap-3">
-              <h3 className="font-bold text-base">สรุปการนับ</h3>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 text-sm">
-                <div className="bg-slate-700/50 rounded-xl p-3">
-                  <p className="text-xs text-slate-400">หมวดย่อย</p>
-                  <p className="font-medium text-blue-300 text-sm mt-0.5 truncate">
+            <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
+                <span className="text-slate-400">
+                  หมวด:{" "}
+                  <span className="text-blue-300 font-medium">
                     {selectedSub}
-                  </p>
-                </div>
-                <div className="bg-slate-700/50 rounded-xl p-3">
-                  <p className="text-xs text-slate-400">รายการทั้งหมด</p>
-                  <p className="font-medium mt-0.5">
-                    {listItems.reduce(
-                      (s, i) => s + (counts[i.id] ?? i.quantity),
-                      0,
-                    )}{" "}
-                    ชิ้น
-                  </p>
-                </div>
-                <div className="bg-slate-700/50 rounded-xl p-3">
-                  <p className="text-xs text-slate-400">เปลี่ยนแปลง</p>
-                  <p
-                    className={`font-medium mt-0.5 ${changedItems.length > 0 ? "text-amber-400" : "text-slate-400"}`}
-                  >
-                    {changedItems.length} รายการ
-                  </p>
-                </div>
-                <div className="bg-slate-700/50 rounded-xl p-3">
-                  <p className="text-xs text-slate-400">ตรงกัน</p>
-                  <p className="font-medium text-emerald-400 mt-0.5">
-                    {listItems.length - changedItems.length} รายการ
-                  </p>
+                  </span>
+                </span>
+                <div className="flex gap-3">
+                  <span className="text-slate-400">
+                    ทั้งหมด:{" "}
+                    <span className="font-bold text-white">
+                      {listItems.reduce(
+                        (s, i) => s + (counts[i.id] ?? i.quantity),
+                        0,
+                      )}{" "}
+                      ชิ้น
+                    </span>
+                  </span>
+                  <span className="text-slate-400">
+                    เปลี่ยน:{" "}
+                    <span
+                      className={`font-bold ${changedItems.length > 0 ? "text-amber-400" : "text-slate-400"}`}
+                    >
+                      {changedItems.length}
+                    </span>
+                  </span>
+                  <span className="text-slate-400">
+                    ตรงกัน:{" "}
+                    <span className="font-bold text-emerald-400">
+                      {listItems.length - changedItems.length}
+                    </span>
+                  </span>
                 </div>
               </div>
 
-              {/* รายการต่าง - แสดงบน mobile ด้วย */}
-              {changedItems.length > 0 && (
-                <div className="border-t border-slate-700 pt-3">
-                  <p className="text-xs text-slate-500 mb-2">
-                    รายการที่ต่างจากระบบ
-                  </p>
-                  <div className="max-h-32 overflow-y-auto space-y-1.5">
-                    {changedItems.map((item) => {
-                      const diff = counts[item.id] - item.quantity;
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex items-start gap-1.5 text-xs"
-                        >
-                          <AlertCircle className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
-                          <span className="flex-1 text-slate-300 leading-tight line-clamp-1">
-                            {item.name}
-                          </span>
-                          <span className="shrink-0 text-slate-500">
-                            {item.quantity}→
-                          </span>
-                          <span className="shrink-0 font-bold text-amber-300">
-                            {counts[item.id]}
-                          </span>
-                          <span
-                            className={`shrink-0 font-bold ${diff > 0 ? "text-emerald-400" : "text-red-400"}`}
-                          >
-                            ({diff > 0 ? `+${diff}` : diff})
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2 border-t border-slate-700 pt-3">
+              <div className="flex gap-2">
                 <input
                   type="text"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="บันทึก เช่น นับประจำเดือน..."
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="บันทึก..."
+                  className="flex-1 px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 rounded-xl font-semibold text-sm transition-all"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 rounded-lg font-semibold text-xs transition-all whitespace-nowrap"
                 >
                   {saving ? (
-                    <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4" />
+                    <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-3 h-3" />
                   ) : (
-                    <Send className="w-4 h-4" />
+                    <Send className="w-3 h-3" />
                   )}
-                  บันทึก {listItems.length} รายการ
-                </button>
-
-                <button
-                  onClick={() => {
-                    const reset = {};
-                    listItems.forEach((i) => {
-                      reset[i.id] = i.quantity;
-                    });
-                    setCounts((prev) => ({ ...prev, ...reset }));
-                  }}
-                  className="w-full flex items-center justify-center gap-1 py-1.5 text-slate-500 hover:text-white text-xs transition-colors"
-                >
-                  <RotateCcw className="w-3 h-3" /> รีเซ็ตเป็นค่าเดิม
+                  บันทึก{" "}
+                  {listItems.reduce(
+                    (s, i) => s + (counts[i.id] ?? i.quantity),
+                    0,
+                  )}{" "}
+                  ชิ้น
                 </button>
               </div>
+
+              <button
+                onClick={() => {
+                  const reset = {};
+                  listItems.forEach((i) => {
+                    reset[i.id] = i.quantity;
+                  });
+                  setCounts((prev) => ({ ...prev, ...reset }));
+                }}
+                className="flex items-center justify-center gap-1 text-slate-500 hover:text-white text-xs transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" /> รีเซ็ตเป็นค่าเดิม
+              </button>
             </div>
 
             {savedCount > 0 && (
