@@ -33,7 +33,9 @@ export default function StockCount() {
   const [savedCount, setSavedCount] = useState(0);
   const [searchQ, setSearchQ] = useState("");
 
-  const listItems = items.filter((i) => i.category === selectedCat);
+  const listItems = items.filter(i =>
+  i.category === selectedCat && i.subcategory === selectedSub // ✅ กลับมาเหมือนเดิม
+)
 
   const filtered = searchQ.trim()
     ? listItems.filter(
@@ -75,22 +77,18 @@ export default function StockCount() {
       init[i.id] = i.quantity;
     });
     setCounts(init);
-    setStep("count");
+    setStep("subcategory");
   };
 
   const handleSelectSub = (sub) => {
-    setSelectedSub(sub);
-    setSearchQ("");
-    const subItems = items.filter(
-      (i) => i.category === selectedCat && i.subcategory === sub,
-    );
-    const init = {};
-    subItems.forEach((i) => {
-      init[i.id] = i.quantity;
-    });
-    setCounts((prev) => ({ ...prev, ...init }));
-    setStep("count");
-  };
+  setSelectedSub(sub)
+  setSearchQ('')
+  const subItems = items.filter(i => i.category === selectedCat && i.subcategory === sub)
+  const init = {}
+  subItems.forEach(i => { init[i.id] = i.quantity }) // ✅ init ทุก item
+  setCounts(init) // ✅ replace ไม่ใช่ merge
+  setStep('count')
+}
 
   const handleBack = () => {
     if (step === "count") {
