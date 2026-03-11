@@ -36,8 +36,18 @@ export const categories = {
   },
   peripherals: {
     name: 'อุปกรณ์ต่อพ่วง',
+    icon: 'Layers',
+    subcategories: ['Plug/Surge Protector', 'Cleaning',]
+  },
+  Printer: {
+    name: 'Printer & Ink',
     icon: 'Printer',
-    subcategories: ['Printer', 'Toner/Ink', 'Scanner', 'Tablet', 'Plug/Surge Protector', 'Cleaning', 'อื่นๆ']
+    subcategories: ['Printer', 'Toner/Ink', 'Scanner']
+  },
+  Other : {
+    name: 'อุปกรณ์อื่นๆ',
+    icon: 'Other ',
+    subcategories: ['อื่นๆ']
   }
 }
 
