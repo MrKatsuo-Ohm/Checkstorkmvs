@@ -38,6 +38,7 @@ export default function StockCount() {
 
   // Scanner state
   const [scanMode, setScanMode] = useState(false)
+  const [gunMode, setGunMode] = useState(false) // เครื่องยิง barcode
   const [scanResult, setScanResult] = useState(null) // { serial, item, status: 'found'|'notfound'|'duplicate' }
   const [scanFlash, setScanFlash] = useState(false)
   const videoRef = useRef(null)
@@ -48,11 +49,10 @@ export default function StockCount() {
   const scannedSerialsRef = useRef(new Set())
   const scanCooldownRef = useRef(false) // ป้องกัน scan ถี่เกินไป
 
-  // Barcode gun: รับ input keyboard เร็วๆ
+  // Barcode gun: รับ input keyboard เร็วๆ (เฉพาะตอน gunMode เปิด)
   useEffect(() => {
-    if (step !== 'count') return
+    if (step !== 'count' || !gunMode) return
     const handleKeyDown = (e) => {
-      // ถ้า focus อยู่ที่ input ให้ข้าม
       if (['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) return
       if (e.key === 'Enter') {
         const code = gunBufferRef.current.trim()
@@ -66,7 +66,7 @@ export default function StockCount() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [step, items])
+  }, [step, gunMode, items])
 
   // Camera scanner — ใช้ ZXing รองรับ iOS Safari
   const startCamera = async () => {
@@ -399,8 +399,21 @@ export default function StockCount() {
                 }`}
               >
                 {scanMode ? <CameraOff className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
-                <span className="hidden sm:inline">{scanMode ? 'ปิดกล้อง' : 'สแกน'}</span>
+                <span className="hidden sm:inline">{scanMode ? 'ปิดกล้อง' : 'กล้อง'}</span>
               </button>
+              {/* ปุ่มเครื่องยิง barcode — แสดง indicator ว่า active */}
+              <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border shrink-0 ${
+                gunMode
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  : 'bg-slate-700/50 text-slate-400 border-slate-600 cursor-pointer hover:bg-slate-700'
+              }`}
+                onClick={() => setGunMode(prev => !prev)}
+                title="เครื่องยิง barcode"
+              >
+                <Scan className="w-4 h-4" />
+                <span className="hidden sm:inline">{gunMode ? 'ยิงอยู่' : 'เครื่องยิง'}</span>
+                {gunMode && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+              </div>
               <span className="text-slate-500 text-sm shrink-0">
                 {filtered.length} รายการ
               </span>
