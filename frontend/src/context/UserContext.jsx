@@ -1,15 +1,28 @@
 import React, { createContext, useContext, useState } from 'react'
 
 const UserContext = createContext(null)
+const STORAGE_KEY = 'it_stock_user'
 
 export function UserProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null) // null = not logged in
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
 
   const login = (name) => {
-    setCurrentUser({ name, loginAt: new Date().toISOString() })
+    const user = { name, loginAt: new Date().toISOString() }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+    setCurrentUser(user)
   }
 
-  const logout = () => setCurrentUser(null)
+  const logout = () => {
+    localStorage.removeItem(STORAGE_KEY)
+    setCurrentUser(null)
+  }
 
   return (
     <UserContext.Provider value={{ currentUser, login, logout }}>
