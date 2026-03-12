@@ -28,12 +28,14 @@ export default function Dashboard({ onNavigate, onFilterCategory }) {
   const totalValue = items.reduce((s, i) => s + i.price * i.quantity, 0)
   const lowStock = items.filter(i => i.quantity <= i.min_stock).length
   const outOfStock = items.filter(i => i.quantity === 0).length
+  // นับ serial ทั้งหมด (จำนวนชิ้นจริง)
+  const totalSerials = items.reduce((s, i) => s + (i.serials?.length || i.quantity), 0)
 
   const categoryStats = Object.entries(categories).map(([key, cat]) => {
     const filtered = items.filter(i => i.category === key)
     return {
       key, ...cat,
-      count: filtered.length,
+      count: filtered.reduce((s, i) => s + (i.serials?.length || i.quantity), 0),
       value: filtered.reduce((s, i) => s + i.price * i.quantity, 0)
     }
   })
@@ -42,7 +44,7 @@ export default function Dashboard({ onNavigate, onFilterCategory }) {
     <div className="space-y-6">
       {/* Stat cards - 2 cols on mobile, 4 on desktop */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <StatCard label="สินค้าทั้งหมด" value={formatNumber(items.length)} sub="รายการ"
+        <StatCard label="สินค้าทั้งหมด" value={formatNumber(totalSerials)} sub="ชิ้น (serial)"
           color="from-blue-500/20 to-blue-600/10 border border-blue-500/30" Icon={Package} />
         <StatCard label="มูลค่ารวม" value={formatCurrency(totalValue)} sub="บาท"
           color="from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30" Icon={Banknote} />

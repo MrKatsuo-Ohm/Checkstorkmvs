@@ -37,7 +37,7 @@ export default function Inventory({ search, filterCategory, onEdit }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">คลังสินค้า</h2>
-        <p className="text-slate-400">แสดง {filtered.length} จาก {items.length} รายการ</p>
+        <p className="text-slate-400">แสดง {filtered.length} รายการ · {filtered.reduce((s,i) => s + (i.serials?.length || i.quantity), 0)} ชิ้น</p>
       </div>
 
       {filtered.length === 0 ? (
@@ -76,7 +76,7 @@ export default function Inventory({ search, filterCategory, onEdit }) {
 
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-slate-700/50 rounded-lg p-3">
-                    <p className="text-xs text-slate-400">จำนวน</p>
+                    <p className="text-xs text-slate-400">จำนวน (ระบบ)</p>
                     <p className="text-xl font-bold">{formatNumber(item.quantity)}</p>
                   </div>
                   <div className="bg-slate-700/50 rounded-lg p-3">
@@ -84,6 +84,20 @@ export default function Inventory({ search, filterCategory, onEdit }) {
                     <p className="text-lg font-bold text-emerald-400">{formatCurrency(item.price)}</p>
                   </div>
                 </div>
+
+                {/* Serial list */}
+                {item.serials?.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs text-slate-400 mb-1.5">Serials ({item.serials.length} ชิ้น)</p>
+                    <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                      {item.serials.map(s => (
+                        <span key={s} className="text-xs font-mono bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-sm text-slate-400 mb-4">
                   <span className="flex items-center gap-1">

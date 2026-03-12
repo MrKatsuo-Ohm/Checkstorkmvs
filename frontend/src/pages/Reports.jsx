@@ -9,11 +9,13 @@ export default function Reports() {
   const { items } = useStock()
   const totalValue = items.reduce((s, i) => s + i.price * i.quantity, 0)
   const totalQty = items.reduce((s, i) => s + i.quantity, 0)
+  const totalSerials = items.reduce((s, i) => s + (i.serials?.length || i.quantity), 0)
 
   const catData = Object.entries(categories).map(([key, cat]) => {
     const filtered = items.filter(i => i.category === key)
     const value = filtered.reduce((s, i) => s + i.price * i.quantity, 0)
-    return { key, ...cat, count: filtered.length, value }
+    const serialCount = filtered.reduce((s, i) => s + (i.serials?.length || i.quantity), 0)
+    return { key, ...cat, count: filtered.length, serialCount, value }
   }).filter(c => c.count > 0)
 
   return (
@@ -24,8 +26,8 @@ export default function Reports() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: 'จำนวนรายการ', value: items.length, Icon: Package, color: 'bg-blue-500/20', iconColor: 'text-blue-400' },
-          { label: 'จำนวนชิ้นรวม', value: formatNumber(totalQty), Icon: Calculator, color: 'bg-emerald-500/20', iconColor: 'text-emerald-400' },
+          { label: 'จำนวนรายการ (product)', value: items.length, Icon: Package, color: 'bg-blue-500/20', iconColor: 'text-blue-400' },
+          { label: 'จำนวนชิ้นรวม (serial)', value: formatNumber(totalSerials), Icon: Calculator, color: 'bg-emerald-500/20', iconColor: 'text-emerald-400' },
           { label: 'มูลค่ารวม', value: formatCurrency(totalValue), Icon: Banknote, color: 'bg-amber-500/20', iconColor: 'text-amber-400' }
         ].map(({ label, value, Icon, color, iconColor }) => (
           <div key={label} className="bg-slate-800 border border-slate-700 rounded-2xl p-6">
@@ -57,7 +59,7 @@ export default function Reports() {
                     <div className="flex items-center gap-2">
                       <Icon className="w-5 h-5 text-blue-400" />
                       <span className="font-medium">{cat.name}</span>
-                      <span className="text-slate-400 text-sm">({cat.count} รายการ)</span>
+                      <span className="text-slate-400 text-sm">({cat.serialCount} ชิ้น · {cat.count} รายการ)</span>
                     </div>
                     <span className="font-bold text-emerald-400">{formatCurrency(cat.value)}</span>
                   </div>
