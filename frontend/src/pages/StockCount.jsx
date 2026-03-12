@@ -211,9 +211,9 @@ export default function StockCount() {
     );
     const init = {};
     subItems.forEach((i) => {
-      init[i.id] = i.quantity;
-    }); // ✅ init ทุก item
-    setCounts(init); // ✅ replace ไม่ใช่ merge
+      init[i.id] = 0; // เริ่มที่ 0 เพื่อนับจากการสแกน
+    });
+    setCounts(init);
     setStep("count");
   };
 
@@ -618,7 +618,7 @@ export default function StockCount() {
                 onClick={() => {
                   const reset = {};
                   listItems.forEach((i) => {
-                    reset[i.id] = i.quantity;
+                    reset[i.id] = 0; // reset กลับเป็น 0
                   });
                   setCounts((prev) => ({ ...prev, ...reset }));
                 }}
