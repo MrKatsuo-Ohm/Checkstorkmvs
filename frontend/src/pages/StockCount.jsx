@@ -5,8 +5,6 @@ import {
   CheckCircle2,
   RotateCcw,
   Send,
-  Plus,
-  Minus,
   Package,
   ClipboardCheck,
   X,
@@ -31,22 +29,25 @@ export default function StockCount() {
   const [step, setStep] = useState("category");
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedSub, setSelectedSub] = useState(null);
-  const [counts, setCounts] = useState({});
+  // scannedSerials: Set of serial strings ที่สแกนแล้ว
+  const [scannedSerials, setScannedSerials] = useState(new Set());
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [searchQ, setSearchQ] = useState("");
 
   // Scanner state
-  const [scanMode, setScanMode] = useState(false) // camera scanner open
-  const [scanResult, setScanResult] = useState(null) // { item, status: 'found'|'notfound' }
-  const [scanFlash, setScanFlash] = useState(false) // highlight animation
+  const [scanMode, setScanMode] = useState(false)
+  const [scanResult, setScanResult] = useState(null) // { serial, item, status: 'found'|'notfound'|'duplicate' }
+  const [scanFlash, setScanFlash] = useState(false)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const detectorRef = useRef(null)
   const animFrameRef = useRef(null)
-  const gunBufferRef = useRef('') // barcode gun buffer
-  const gunTimerRef = useRef(null) // barcode gun debounce
+  const gunBufferRef = useRef('')
+  const gunTimerRef = useRef(null)
+  // ref เพื่อให้ handleScanResult เข้าถึง scannedSerials ล่าสุดเสมอ
+  const scannedSerialsRef = useRef(new Set())
 
   // Barcode gun: รับ input keyboard เร็วๆ
   useEffect(() => {
@@ -133,44 +134,69 @@ export default function StockCount() {
     cancelAnimationFrame(animFrameRef.current)
     const codeLower = code.toLowerCase()
 
-    // match by serial เท่านั้น
+    // เช็คซ้ำก่อน
+    if (scannedSerialsRef.current.has(codeLower)) {
+      const item = items.find(i =>
+        Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower)
+      )
+      setScanResult({ serial: code, item, status: 'duplicate' })
+      setTimeout(() => {
+        setScanResult(null)
+        if (streamRef.current) scanFrame()
+      }, 1500)
+      return
+    }
+
+    // match by serial
     const found = items.find(i =>
       Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower)
     )
 
     if (found) {
-      // นับ +1 ทันที
-      setCounts(prev => ({
-        ...prev,
-        [found.id]: Math.max(0, (prev[found.id] ?? 0) + 1)
-      }))
-      setScanResult({ item: found, status: 'found' })
+      // เพิ่ม serial เข้า scanned set
+      const newSet = new Set(scannedSerialsRef.current)
+      newSet.add(codeLower)
+      scannedSerialsRef.current = newSet
+      setScannedSerials(new Set(newSet))
+
+      setScanResult({ serial: code, item: found, status: 'found' })
       setScanFlash(true)
       setTimeout(() => setScanFlash(false), 600)
       setTimeout(() => {
-        document.getElementById(`item-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        document.getElementById(`serial-${codeLower}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }, 200)
     } else {
-      setScanResult({ item: null, status: 'notfound', code })
+      setScanResult({ serial: code, item: null, status: 'notfound' })
     }
-    // resume scan หลัง 1.5s
+
     setTimeout(() => {
       setScanResult(null)
       if (streamRef.current) scanFrame()
     }, 1500)
   }, [items])
 
+  // สร้าง flat list ของ serials ในหมวดที่เลือก
+  // แต่ละ row = { serial, item, scanned }
   const listItems = items.filter(
-    (i) => i.category === selectedCat && i.subcategory === selectedSub, // ✅ กลับมาเหมือนเดิม
+    (i) => i.category === selectedCat && i.subcategory === selectedSub
+  );
+
+  // flat list serials
+  const serialRows = listItems.flatMap(item =>
+    (item.serials || []).map(serial => ({
+      serial,
+      serialLower: serial.toLowerCase(),
+      item,
+      scanned: scannedSerials.has(serial.toLowerCase()),
+    }))
   );
 
   const filtered = searchQ.trim()
-    ? listItems.filter(
-        (i) =>
-          i.name.toLowerCase().includes(searchQ.toLowerCase()) ||
-          (i.product_code || "").toLowerCase().includes(searchQ.toLowerCase()),
+    ? serialRows.filter(row =>
+        row.serial.toLowerCase().includes(searchQ.toLowerCase()) ||
+        row.item.name.toLowerCase().includes(searchQ.toLowerCase())
       )
-    : listItems;
+    : serialRows;
 
   const subCatsWithItems = selectedCat
     ? categories[selectedCat].subcategories.filter((sub) =>
@@ -178,46 +204,20 @@ export default function StockCount() {
       )
     : [];
 
-  const setCount = (id, val) => {
-    const num = Math.max(0, parseInt(val) || 0);
-    setCounts((prev) => ({ ...prev, [id]: num }));
-  };
-
-  const adjust = (id, delta) => {
-    setCounts((prev) => ({
-      ...prev,
-      [id]: Math.max(
-        0,
-        (prev[id] ?? items.find((i) => i.id === id)?.quantity ?? 0) + delta,
-      ),
-    }));
-  };
-
   const handleSelectCat = (catKey) => {
     setSelectedCat(catKey);
     setSelectedSub(null);
     setSavedCount(0);
-    // ✅ init counts ทุก item ในหมวดนั้นเลย
-    const catItems = items.filter((i) => i.category === catKey);
-    const init = {};
-    catItems.forEach((i) => {
-      init[i.id] = i.quantity;
-    });
-    setCounts(init);
+    setScannedSerials(new Set());
+    scannedSerialsRef.current = new Set();
     setStep("subcategory");
   };
 
   const handleSelectSub = (sub) => {
     setSelectedSub(sub);
     setSearchQ("");
-    const subItems = items.filter(
-      (i) => i.category === selectedCat && i.subcategory === sub,
-    );
-    const init = {};
-    subItems.forEach((i) => {
-      init[i.id] = 0; // เริ่มที่ 0 เพื่อนับจากการสแกน
-    });
-    setCounts(init);
+    setScannedSerials(new Set());
+    scannedSerialsRef.current = new Set();
     setStep("count");
   };
 
@@ -231,17 +231,24 @@ export default function StockCount() {
     }
   };
 
-  const changedItems = listItems.filter(
-    (i) => counts[i.id] !== undefined && counts[i.id] !== i.quantity,
-  );
+  const totalSerials = serialRows.length;
+  const scannedCount = scannedSerials.size;
 
   const handleSave = async () => {
     setSaving(true);
     let saved = 0;
+    // group scanned serials by item
+    const countByItem = {};
+    for (const s of scannedSerials) {
+      const item = items.find(i =>
+        Array.isArray(i.serials) && i.serials.some(sr => sr.toLowerCase() === s)
+      );
+      if (item) {
+        countByItem[item.id] = (countByItem[item.id] || 0) + 1;
+      }
+    }
     for (const item of listItems) {
-      if (counts[item.id] === undefined) continue;
-      const newQty = counts[item.id];
-      // บันทึกผลการนับลง history อย่างเดียว ไม่แก้จำนวนในคลัง
+      const newQty = countByItem[item.id] ?? 0;
       addHistoryEntry({
         type: "update",
         itemId: item.id,
@@ -437,16 +444,20 @@ export default function StockCount() {
                 {/* scan result flash */}
                 {scanResult && (
                   <div className={`absolute inset-0 flex items-center justify-center ${
-                    scanResult.status === 'found' ? 'bg-emerald-500/30' : 'bg-red-500/30'
+                    scanResult.status === 'found' ? 'bg-emerald-500/30' :
+                    scanResult.status === 'duplicate' ? 'bg-amber-500/30' :
+                    'bg-red-500/30'
                   }`}>
                     <div className={`px-4 py-2 rounded-xl font-bold text-sm ${
-                      scanResult.status === 'found'
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-red-500 text-white'
+                      scanResult.status === 'found' ? 'bg-emerald-500 text-white' :
+                      scanResult.status === 'duplicate' ? 'bg-amber-500 text-white' :
+                      'bg-red-500 text-white'
                     }`}>
                       {scanResult.status === 'found'
                         ? `✓ ${scanResult.item.name}`
-                        : `ไม่พบ: ${scanResult.code}`}
+                        : scanResult.status === 'duplicate'
+                        ? `⚠ สแกนซ้ำ: ${scanResult.serial}`
+                        : `ไม่พบ: ${scanResult.serial}`}
                     </div>
                   </div>
                 )}
@@ -463,132 +474,77 @@ export default function StockCount() {
                   ไม่พบรายการ
                 </div>
               )}
-              {filtered.map((item, idx) => {
-                const cur = counts[item.id] ?? item.quantity;
-                const isChanged = cur !== item.quantity;
-                const diff = cur - item.quantity;
+              {filtered.map((row, idx) => (
+                <div
+                  id={`serial-${row.serialLower}`}
+                  key={row.serial}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
+                    scanResult?.serial?.toLowerCase() === row.serialLower
+                      ? scanResult.status === 'duplicate'
+                        ? "bg-amber-500/10 border-amber-500/50 ring-1 ring-amber-500/50"
+                        : "bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/50"
+                      : row.scanned
+                      ? "bg-emerald-500/5 border-emerald-500/20"
+                      : "bg-slate-800/60 border-slate-700/60"
+                  }`}
+                >
+                  <span className="text-slate-600 text-xs w-5 shrink-0 text-right">{idx + 1}</span>
 
-                return (
-                  <div
-                    id={`item-${item.id}`}
-                    key={item.id}
-                    className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-3 rounded-xl border transition-all ${
-                      scanResult?.item?.id === item.id
-                        ? "bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/50"
-                        : isChanged
-                        ? "bg-amber-500/5 border-amber-500/30"
-                        : "bg-slate-800/60 border-slate-700/60"
-                    }`}
-                  >
-                    {/* แถวบน: เลขลำดับ + ชื่อ */}
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-slate-600 text-xs w-5 shrink-0 text-right">
-                        {idx + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium leading-tight">
-                          {item.name}
-                        </p>
-                        {item.product_code && (
-                          <p className="text-xs text-slate-500 font-mono mt-0.5">
-                            #{item.product_code}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* แถวล่าง (mobile) / ขวา (desktop): จำนวนระบบ + ปุ่ม + diff */}
-                    <div className="flex items-center gap-2 justify-between sm:justify-end">
-                      <div className="text-right shrink-0 hidden sm:block">
-                        <p className="text-xs text-slate-500">ระบบ</p>
-                        <p className="text-sm font-semibold text-slate-300">
-                          {item.quantity}
-                        </p>
-                      </div>
-                      <span className="text-xs text-slate-500 sm:hidden">
-                        ระบบ: {item.quantity}
-                      </span>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => adjust(item.id, -1)}
-                          className="w-7 h-7 flex items-center justify-center bg-slate-700 hover:bg-red-500/30 hover:text-red-400 rounded-lg transition-colors"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <input
-                          type="number"
-                          min="0"
-                          value={cur}
-                          onChange={(e) => setCount(item.id, e.target.value)}
-                          className={`w-14 text-center py-1.5 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 border transition-colors ${
-                            isChanged
-                              ? "bg-amber-500/10 border-amber-500/40 text-amber-300"
-                              : "bg-slate-700 border-slate-600 text-white"
-                          }`}
-                        />
-                        <button
-                          onClick={() => adjust(item.id, 1)}
-                          className="w-7 h-7 flex items-center justify-center bg-slate-700 hover:bg-emerald-500/30 hover:text-emerald-400 rounded-lg transition-colors"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-
-                      <div className="w-8 text-right shrink-0">
-                        {isChanged ? (
-                          <span
-                            className={`text-xs font-bold ${diff > 0 ? "text-emerald-400" : "text-red-400"}`}
-                          >
-                            {diff > 0 ? `+${diff}` : diff}
-                          </span>
-                        ) : (
-                          <CheckCircle2 className="w-4 h-4 text-slate-700 ml-auto" />
-                        )}
-                      </div>
-                    </div>
+                  {/* checkmark */}
+                  <div className="shrink-0">
+                    {row.scanned
+                      ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      : <div className="w-4 h-4 rounded-full border border-slate-600" />
+                    }
                   </div>
-                );
-              })}
+
+                  {/* serial + ชื่อสินค้า */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-mono text-slate-300 leading-tight">{row.serial}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">{row.item.name}</p>
+                  </div>
+
+                  {/* สถานะ */}
+                  {row.scanned && (
+                    <span className="text-xs text-emerald-400 font-medium shrink-0">นับแล้ว</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Panel สรุป - ✅ full width on mobile, fixed width on desktop */}
+          {/* Panel สรุป */}
           <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3">
             <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
                 <span className="text-slate-400">
                   หมวด:{" "}
-                  <span className="text-blue-300 font-medium">
-                    {selectedSub}
-                  </span>
+                  <span className="text-blue-300 font-medium">{selectedSub}</span>
                 </span>
                 <div className="flex gap-3">
                   <span className="text-slate-400">
+                    สแกนแล้ว:{" "}
+                    <span className="font-bold text-emerald-400">{scannedCount}</span>
+                  </span>
+                  <span className="text-slate-400">
                     ทั้งหมด:{" "}
-                    <span className="font-bold text-white">
-                      {listItems.reduce(
-                        (s, i) => s + (counts[i.id] ?? i.quantity),
-                        0,
-                      )}{" "}
-                      ชิ้น
-                    </span>
+                    <span className="font-bold text-white">{totalSerials}</span>
                   </span>
                   <span className="text-slate-400">
-                    เปลี่ยน:{" "}
-                    <span
-                      className={`font-bold ${changedItems.length > 0 ? "text-amber-400" : "text-slate-400"}`}
-                    >
-                      {changedItems.length}
-                    </span>
-                  </span>
-                  <span className="text-slate-400">
-                    ตรงกัน:{" "}
-                    <span className="font-bold text-emerald-400">
-                      {listItems.length - changedItems.length}
+                    เหลือ:{" "}
+                    <span className={`font-bold ${totalSerials - scannedCount > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                      {totalSerials - scannedCount}
                     </span>
                   </span>
                 </div>
+              </div>
+
+              {/* progress bar */}
+              <div className="w-full bg-slate-700 rounded-full h-1.5">
+                <div
+                  className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                  style={{ width: totalSerials > 0 ? `${(scannedCount / totalSerials) * 100}%` : '0%' }}
+                />
               </div>
 
               <div className="flex gap-2">
@@ -609,26 +565,18 @@ export default function StockCount() {
                   ) : (
                     <Send className="w-3 h-3" />
                   )}
-                  บันทึก{" "}
-                  {listItems.reduce(
-                    (s, i) => s + (counts[i.id] ?? i.quantity),
-                    0,
-                  )}{" "}
-                  ชิ้น
+                  บันทึก {scannedCount} ชิ้น
                 </button>
               </div>
 
               <button
                 onClick={() => {
-                  const reset = {};
-                  listItems.forEach((i) => {
-                    reset[i.id] = 0; // reset กลับเป็น 0
-                  });
-                  setCounts((prev) => ({ ...prev, ...reset }));
+                  setScannedSerials(new Set());
+                  scannedSerialsRef.current = new Set();
                 }}
                 className="flex items-center justify-center gap-1 text-slate-500 hover:text-white text-xs transition-colors"
               >
-                <RotateCcw className="w-3 h-3" /> รีเซ็ตเป็นค่าเดิม
+                <RotateCcw className="w-3 h-3" /> รีเซ็ต
               </button>
             </div>
 
