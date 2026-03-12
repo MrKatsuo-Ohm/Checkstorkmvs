@@ -75,29 +75,45 @@ export default function StockCount() {
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play()
-      }
-      // ใช้ BarcodeDetector API (built-in Chrome/Android)
-      if ('BarcodeDetector' in window) {
-        detectorRef.current = new window.BarcodeDetector({ formats: ['code_128','code_39','ean_13','ean_8','upc_a','upc_e','qr_code','data_matrix'] })
-        scanFrame()
-      }
-      setScanMode(true)
+      setScanMode(true) // set state ก่อน เพื่อให้ video element render
     } catch (err) {
       alert('ไม่สามารถเปิดกล้องได้: ' + err.message)
     }
   }
 
+  // เมื่อ video element พร้อมและ stream มีแล้ว ค่อย attach
+  useEffect(() => {
+    if (!scanMode || !streamRef.current) return
+    const video = videoRef.current
+    if (!video) return
+    video.srcObject = streamRef.current
+    video.onloadedmetadata = () => {
+      video.play().then(() => {
+        if ('BarcodeDetector' in window) {
+          detectorRef.current = new window.BarcodeDetector({
+            formats: ['code_128','code_39','ean_13','ean_8','upc_a','upc_e','qr_code','data_matrix']
+          })
+          scanFrame()
+        } else {
+          alert('เบราว์เซอร์นี้ไม่รองรับ BarcodeDetector\nใช้ Chrome บน Android หรือ Desktop แทนครับ')
+        }
+      }).catch(() => {})
+    }
+  }, [scanMode])
+
   const scanFrame = () => {
     animFrameRef.current = requestAnimationFrame(async () => {
-      if (!videoRef.current || !detectorRef.current) return
+      const video = videoRef.current
+      const detector = detectorRef.current
+      if (!video || !detector || video.readyState < 2) {
+        scanFrame() // รอ video ready
+        return
+      }
       try {
-        const barcodes = await detectorRef.current.detect(videoRef.current)
+        const barcodes = await detector.detect(video)
         if (barcodes.length > 0) {
           handleScanResult(barcodes[0].rawValue)
-          return // หยุดสแกนชั่วคราว 1.5s หลังเจอ
+          return // หยุดชั่วคราว resume ใน handleScanResult
         }
       } catch {}
       scanFrame()
@@ -108,20 +124,25 @@ export default function StockCount() {
     cancelAnimationFrame(animFrameRef.current)
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
+    detectorRef.current = null
     setScanMode(false)
+    setScanResult(null)
   }
 
   const handleScanResult = useCallback((code) => {
     cancelAnimationFrame(animFrameRef.current)
-    // หาสินค้าจาก product_code
     const found = items.find(i =>
       (i.product_code || '').toLowerCase() === code.toLowerCase()
     )
     if (found) {
+      // ✅ นับ +1 ทันที
+      setCounts(prev => ({
+        ...prev,
+        [found.id]: Math.max(0, (prev[found.id] ?? found.quantity) + 1)
+      }))
       setScanResult({ item: found, status: 'found' })
       setScanFlash(true)
       setTimeout(() => setScanFlash(false), 600)
-      // scroll ไปหา item และ highlight
       setTimeout(() => {
         document.getElementById(`item-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }, 200)
