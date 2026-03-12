@@ -114,23 +114,21 @@ export default function StockCount() {
     for (const item of listItems) {
       if (counts[item.id] === undefined) continue;
       const newQty = counts[item.id];
-      const ok = await updateItem(item.id, { ...item, quantity: newQty });
-      if (ok) {
-        addHistoryEntry({
-          type: "update",
-          itemId: item.id,
-          itemName: item.name,
-          category: item.category,
-          subcategory: item.subcategory,
-          quantityBefore: item.quantity,
-          quantityAfter: newQty,
-          priceBefore: item.price,
-          priceAfter: item.price,
-          counter: currentUser?.name || "ไม่ระบุ",
-          note: note || `นับสต๊อก ${categories[selectedCat]?.name}`,
-        });
-        saved++;
-      }
+      // บันทึกผลการนับลง history อย่างเดียว ไม่แก้จำนวนในคลัง
+      addHistoryEntry({
+        type: "update",
+        itemId: item.id,
+        itemName: item.name,
+        category: item.category,
+        subcategory: item.subcategory,
+        quantityBefore: item.quantity,
+        quantityAfter: newQty,
+        priceBefore: item.price,
+        priceAfter: item.price,
+        counter: currentUser?.name || "ไม่ระบุ",
+        note: note || `นับสต๊อก ${categories[selectedCat]?.name}`,
+      });
+      saved++;
     }
     setSavedCount(saved);
     setSaving(false);
