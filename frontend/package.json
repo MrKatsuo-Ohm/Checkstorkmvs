@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@zxing/browser": "^0.1.5",
     "lucide-react": "^0.383.0",
-    "vite": "^5.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0"
+    "react-router-dom": "^6.22.0",
+    "vite": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

@@ -20,6 +20,7 @@ import { useStock } from "../context/StockContext";
 import { useUser } from "../context/UserContext";
 import { useHistory } from "../context/HistoryContext";
 import { categories } from "../utils/constants";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 
 export default function StockCount() {
   const { items, updateItem } = useStock();
@@ -41,13 +42,12 @@ export default function StockCount() {
   const [scanResult, setScanResult] = useState(null) // { serial, item, status: 'found'|'notfound'|'duplicate' }
   const [scanFlash, setScanFlash] = useState(false)
   const videoRef = useRef(null)
-  const streamRef = useRef(null)
-  const detectorRef = useRef(null)
-  const animFrameRef = useRef(null)
+  const codeReaderRef = useRef(null)  // ZXing reader
   const gunBufferRef = useRef('')
   const gunTimerRef = useRef(null)
   // ref เพื่อให้ handleScanResult เข้าถึง scannedSerials ล่าสุดเสมอ
   const scannedSerialsRef = useRef(new Set())
+  const scanCooldownRef = useRef(false) // ป้องกัน scan ถี่เกินไป
 
   // Barcode gun: รับ input keyboard เร็วๆ
   useEffect(() => {
@@ -69,63 +69,41 @@ export default function StockCount() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [step, items])
 
-  // Camera scanner
+  // Camera scanner — ใช้ ZXing รองรับ iOS Safari
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      })
-      streamRef.current = stream
-      setScanMode(true) // set state ก่อน เพื่อให้ video element render
+      const reader = new BrowserMultiFormatReader()
+      codeReaderRef.current = reader
+      setScanMode(true)
     } catch (err) {
       alert('ไม่สามารถเปิดกล้องได้: ' + err.message)
     }
   }
 
-  // เมื่อ video element พร้อมและ stream มีแล้ว ค่อย attach
+  // เมื่อ video element render แล้ว ค่อย start ZXing
   useEffect(() => {
-    if (!scanMode || !streamRef.current) return
-    const video = videoRef.current
-    if (!video) return
-    video.srcObject = streamRef.current
-    video.onloadedmetadata = () => {
-      video.play().then(() => {
-        if ('BarcodeDetector' in window) {
-          detectorRef.current = new window.BarcodeDetector({
-            formats: ['code_128','code_39','ean_13','ean_8','upc_a','upc_e','qr_code','data_matrix']
-          })
-          scanFrame()
-        } else {
-          alert('เบราว์เซอร์นี้ไม่รองรับ BarcodeDetector\nใช้ Chrome บน Android หรือ Desktop แทนครับ')
+    if (!scanMode || !videoRef.current || !codeReaderRef.current) return
+    const reader = codeReaderRef.current
+    reader.decodeFromConstraints(
+      { video: { facingMode: 'environment' } },
+      videoRef.current,
+      (result, err) => {
+        if (result && !scanCooldownRef.current) {
+          scanCooldownRef.current = true
+          handleScanResult(result.getText())
+          setTimeout(() => { scanCooldownRef.current = false }, 1500)
         }
-      }).catch(() => {})
-    }
+      }
+    ).catch(err => {
+      alert('ไม่สามารถเปิดกล้องได้: ' + err.message)
+      setScanMode(false)
+    })
+    return () => { reader.reset?.() }
   }, [scanMode])
 
-  const scanFrame = () => {
-    animFrameRef.current = requestAnimationFrame(async () => {
-      const video = videoRef.current
-      const detector = detectorRef.current
-      if (!video || !detector || video.readyState < 2) {
-        scanFrame() // รอ video ready
-        return
-      }
-      try {
-        const barcodes = await detector.detect(video)
-        if (barcodes.length > 0) {
-          handleScanResult(barcodes[0].rawValue)
-          return // หยุดชั่วคราว resume ใน handleScanResult
-        }
-      } catch {}
-      scanFrame()
-    })
-  }
-
   const stopCamera = () => {
-    cancelAnimationFrame(animFrameRef.current)
-    streamRef.current?.getTracks().forEach(t => t.stop())
-    streamRef.current = null
-    detectorRef.current = null
+    codeReaderRef.current?.reset?.()
+    codeReaderRef.current = null
     setScanMode(false)
     setScanResult(null)
   }
@@ -171,7 +149,6 @@ export default function StockCount() {
 
     setTimeout(() => {
       setScanResult(null)
-      if (streamRef.current) scanFrame()
     }, 1500)
   }, [items])
 
