@@ -20,7 +20,6 @@ import { useStock } from "../context/StockContext";
 import { useUser } from "../context/UserContext";
 import { useHistory } from "../context/HistoryContext";
 import { categories } from "../utils/constants";
-import { BrowserMultiFormatReader } from "@zxing/browser";
 
 export default function StockCount() {
   const { items, updateItem } = useStock();
@@ -72,6 +71,7 @@ export default function StockCount() {
   // Camera scanner — ใช้ ZXing รองรับ iOS Safari
   const startCamera = async () => {
     try {
+      const { BrowserMultiFormatReader } = await import('@zxing/browser')
       const reader = new BrowserMultiFormatReader()
       codeReaderRef.current = reader
       setScanMode(true)
@@ -84,8 +84,10 @@ export default function StockCount() {
   useEffect(() => {
     if (!scanMode || !videoRef.current || !codeReaderRef.current) return
     const reader = codeReaderRef.current
-    reader.decodeFromConstraints(
-      { video: { facingMode: 'environment' } },
+    let controls = null
+
+    reader.decodeFromVideoDevice(
+      undefined, // undefined = กล้องหลัง (environment)
       videoRef.current,
       (result, err) => {
         if (result && !scanCooldownRef.current) {
@@ -94,11 +96,14 @@ export default function StockCount() {
           setTimeout(() => { scanCooldownRef.current = false }, 1500)
         }
       }
-    ).catch(err => {
+    ).then(ctrl => {
+      controls = ctrl
+    }).catch(err => {
       alert('ไม่สามารถเปิดกล้องได้: ' + err.message)
       setScanMode(false)
     })
-    return () => { reader.reset?.() }
+
+    return () => { controls?.stop?.() }
   }, [scanMode])
 
   const stopCamera = () => {
@@ -109,7 +114,6 @@ export default function StockCount() {
   }
 
   const handleScanResult = useCallback((code) => {
-    cancelAnimationFrame(animFrameRef.current)
     const codeLower = code.toLowerCase()
 
     // เช็คซ้ำก่อน
@@ -118,10 +122,7 @@ export default function StockCount() {
         Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower)
       )
       setScanResult({ serial: code, item, status: 'duplicate' })
-      setTimeout(() => {
-        setScanResult(null)
-        if (streamRef.current) scanFrame()
-      }, 1500)
+      setTimeout(() => { setScanResult(null) }, 1500)
       return
     }
 
