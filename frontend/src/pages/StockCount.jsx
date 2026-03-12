@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   ChevronRight,
   ChevronLeft,
@@ -12,6 +12,10 @@ import {
   X,
   Search,
   AlertCircle,
+  Scan,
+  Camera,
+  CameraOff,
+  Zap,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useStock } from "../context/StockContext";
@@ -32,6 +36,104 @@ export default function StockCount() {
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [searchQ, setSearchQ] = useState("");
+
+  // Scanner state
+  const [scanMode, setScanMode] = useState(false) // camera scanner open
+  const [scanResult, setScanResult] = useState(null) // { item, status: 'found'|'notfound' }
+  const [scanFlash, setScanFlash] = useState(false) // highlight animation
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+  const detectorRef = useRef(null)
+  const animFrameRef = useRef(null)
+  const gunBufferRef = useRef('') // barcode gun buffer
+  const gunTimerRef = useRef(null) // barcode gun debounce
+
+  // Barcode gun: รับ input keyboard เร็วๆ
+  useEffect(() => {
+    if (step !== 'count') return
+    const handleKeyDown = (e) => {
+      // ถ้า focus อยู่ที่ input ให้ข้าม
+      if (['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) return
+      if (e.key === 'Enter') {
+        const code = gunBufferRef.current.trim()
+        gunBufferRef.current = ''
+        if (code) handleScanResult(code)
+      } else if (e.key.length === 1) {
+        gunBufferRef.current += e.key
+        clearTimeout(gunTimerRef.current)
+        gunTimerRef.current = setTimeout(() => { gunBufferRef.current = '' }, 100)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [step, items])
+
+  // Camera scanner
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+      // ใช้ BarcodeDetector API (built-in Chrome/Android)
+      if ('BarcodeDetector' in window) {
+        detectorRef.current = new window.BarcodeDetector({ formats: ['code_128','code_39','ean_13','ean_8','upc_a','upc_e','qr_code','data_matrix'] })
+        scanFrame()
+      }
+      setScanMode(true)
+    } catch (err) {
+      alert('ไม่สามารถเปิดกล้องได้: ' + err.message)
+    }
+  }
+
+  const scanFrame = () => {
+    animFrameRef.current = requestAnimationFrame(async () => {
+      if (!videoRef.current || !detectorRef.current) return
+      try {
+        const barcodes = await detectorRef.current.detect(videoRef.current)
+        if (barcodes.length > 0) {
+          handleScanResult(barcodes[0].rawValue)
+          return // หยุดสแกนชั่วคราว 1.5s หลังเจอ
+        }
+      } catch {}
+      scanFrame()
+    })
+  }
+
+  const stopCamera = () => {
+    cancelAnimationFrame(animFrameRef.current)
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+    setScanMode(false)
+  }
+
+  const handleScanResult = useCallback((code) => {
+    cancelAnimationFrame(animFrameRef.current)
+    // หาสินค้าจาก product_code
+    const found = items.find(i =>
+      (i.product_code || '').toLowerCase() === code.toLowerCase()
+    )
+    if (found) {
+      setScanResult({ item: found, status: 'found' })
+      setScanFlash(true)
+      setTimeout(() => setScanFlash(false), 600)
+      // scroll ไปหา item และ highlight
+      setTimeout(() => {
+        document.getElementById(`item-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 200)
+    } else {
+      setScanResult({ item: null, status: 'notfound', code })
+    }
+    // resume scan หลัง 1.5s
+    setTimeout(() => {
+      setScanResult(null)
+      if (streamRef.current) scanFrame()
+    }, 1500)
+  }, [items])
 
   const listItems = items.filter(
     (i) => i.category === selectedCat && i.subcategory === selectedSub, // ✅ กลับมาเหมือนเดิม
@@ -277,10 +379,58 @@ export default function StockCount() {
                   </button>
                 )}
               </div>
+              {/* ปุ่มสแกน barcode */}
+              <button
+                onClick={() => scanMode ? stopCamera() : startCamera()}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all shrink-0 ${
+                  scanMode
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30'
+                }`}
+              >
+                {scanMode ? <CameraOff className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+                <span className="hidden sm:inline">{scanMode ? 'ปิดกล้อง' : 'สแกน'}</span>
+              </button>
               <span className="text-slate-500 text-sm shrink-0">
                 {filtered.length} รายการ
               </span>
             </div>
+
+            {/* Camera preview */}
+            {scanMode && (
+              <div className="relative mb-3 rounded-2xl overflow-hidden bg-black border border-slate-700">
+                <video ref={videoRef} className="w-full max-h-48 object-cover" playsInline muted />
+                {/* viewfinder */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-48 h-24 border-2 border-blue-400 rounded-lg opacity-70">
+                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-blue-400 rounded-tl" />
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-blue-400 rounded-tr" />
+                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-blue-400 rounded-bl" />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-blue-400 rounded-br" />
+                  </div>
+                </div>
+                {/* scan result flash */}
+                {scanResult && (
+                  <div className={`absolute inset-0 flex items-center justify-center ${
+                    scanResult.status === 'found' ? 'bg-emerald-500/30' : 'bg-red-500/30'
+                  }`}>
+                    <div className={`px-4 py-2 rounded-xl font-bold text-sm ${
+                      scanResult.status === 'found'
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-red-500 text-white'
+                    }`}>
+                      {scanResult.status === 'found'
+                        ? `✓ ${scanResult.item.name}`
+                        : `ไม่พบ: ${scanResult.code}`}
+                    </div>
+                  </div>
+                )}
+                <div className="absolute bottom-2 left-0 right-0 text-center text-xs text-slate-400">
+                  <Zap className="w-3 h-3 inline mr-1 text-blue-400" />
+                  หันกล้องไปที่ barcode
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
               {filtered.length === 0 && (
@@ -295,9 +445,12 @@ export default function StockCount() {
 
                 return (
                   <div
+                    id={`item-${item.id}`}
                     key={item.id}
-                    className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-3 rounded-xl border transition-colors ${
-                      isChanged
+                    className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-3 rounded-xl border transition-all ${
+                      scanResult?.item?.id === item.id
+                        ? "bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/50"
+                        : isChanged
                         ? "bg-amber-500/5 border-amber-500/30"
                         : "bg-slate-800/60 border-slate-700/60"
                     }`}
