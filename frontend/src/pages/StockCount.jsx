@@ -131,14 +131,18 @@ export default function StockCount() {
 
   const handleScanResult = useCallback((code) => {
     cancelAnimationFrame(animFrameRef.current)
+    const codeLower = code.toLowerCase()
+
+    // match by serial เท่านั้น
     const found = items.find(i =>
-      (i.product_code || '').toLowerCase() === code.toLowerCase()
+      Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower)
     )
+
     if (found) {
-      // ✅ นับ +1 ทันที
+      // นับ +1 ทันที
       setCounts(prev => ({
         ...prev,
-        [found.id]: Math.max(0, (prev[found.id] ?? found.quantity) + 1)
+        [found.id]: Math.max(0, (prev[found.id] ?? 0) + 1)
       }))
       setScanResult({ item: found, status: 'found' })
       setScanFlash(true)
