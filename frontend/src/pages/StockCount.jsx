@@ -48,7 +48,8 @@ export default function StockCount() {
   const gunTimerRef = useRef(null)
   // ref เพื่อให้ handleScanResult เข้าถึง scannedSerials ล่าสุดเสมอ
   const scannedSerialsRef = useRef(new Set())
-  const scanCooldownRef = useRef(false) // ป้องกัน scan ถี่เกินไป
+  const sessionKeyRef = useRef(null)
+  const syncTimerRef = useRef(null)
 
   // Barcode gun: รับ input keyboard เร็วๆ (เฉพาะตอน gunMode เปิด)
   useEffect(() => {
@@ -68,6 +69,16 @@ export default function StockCount() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [step, gunMode, items])
+
+  // Sync scannedSerials ไป API ทุกครั้งที่เปลี่ยน
+  useEffect(() => {
+    if (step === 'count' && sessionKeyRef.current && scannedSerials.size >= 0) {
+      clearTimeout(syncTimerRef.current)
+      syncTimerRef.current = setTimeout(() => {
+        // ไม่ต้องทำอะไร เพราะ API จะถูกเรียกใน handleScanResult แล้ว
+      }, 1000)
+    }
+  }, [scannedSerials, step])
 
   // Camera scanner — ใช้ ZXing รองรับ iOS Safari
   const startCamera = async () => {
@@ -138,6 +149,15 @@ export default function StockCount() {
       newSet.add(codeLower)
       scannedSerialsRef.current = newSet
       setScannedSerials(new Set(newSet))
+      
+      // บันทึกไป API
+      if (sessionKeyRef.current) {
+        fetch(`/api/scan-session/${sessionKeyRef.current}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serial: codeLower })
+        }).catch(err => console.error('Failed to sync:', err))
+      }
 
       setScanResult({ serial: code, item: found, status: 'found' })
       setScanFlash(true)
@@ -196,33 +216,24 @@ export default function StockCount() {
     setSearchQ("");
     setStep("count");
     
-    // โหลด localStorage สำหรับ subcategory นี้
+    // สร้าง session key และดึงข้อมูลจาก API
     const key = `scan_${selectedCat}_${sub}`;
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      try {
-        const set = new Set(JSON.parse(saved));
+    sessionKeyRef.current = key;
+    
+    // โหลดข้อมูลจาก API
+    fetch(`/api/scan-session/${key}`)
+      .then(res => res.json())
+      .then(data => {
+        const set = new Set(data.serials || []);
         setScannedSerials(set);
         scannedSerialsRef.current = set;
-      } catch (e) {
-        console.error('Failed to load from localStorage:', e);
+      })
+      .catch(err => {
+        console.error('Failed to load session:', err);
         setScannedSerials(new Set());
         scannedSerialsRef.current = new Set();
-      }
-    } else {
-      setScannedSerials(new Set());
-      scannedSerialsRef.current = new Set();
-    }
+      });
   };
-
-  // บันทึก serialize scannedSerials ไป localStorage
-  useEffect(() => {
-    if (step === 'count' && selectedCat && selectedSub) {
-      const key = `scan_${selectedCat}_${selectedSub}`;
-      const arr = Array.from(scannedSerials);
-      localStorage.setItem(key, JSON.stringify(arr));
-    }
-  }, [scannedSerials, step, selectedCat, selectedSub]);
 
   // ประมวลผล manual input — comma/newline separated
   const handleAddManual = (text) => {
@@ -279,6 +290,16 @@ export default function StockCount() {
     setSavedCount(saved);
     setSaving(false);
     setNote("");
+    
+    // ลบ session จาก API หลังบันทึกเสร็จ
+    if (sessionKeyRef.current) {
+      fetch(`/api/scan-session/${sessionKeyRef.current}`, { method: 'DELETE' })
+        .catch(err => console.error('Failed to clear session:', err))
+    }
+    
+    // reset
+    setScannedSerials(new Set());
+    scannedSerialsRef.current = new Set();
   };
 
   const cat = selectedCat ? categories[selectedCat] : null;
@@ -617,8 +638,11 @@ export default function StockCount() {
 
               <button
                 onClick={() => {
-                  const key = `scan_${selectedCat}_${selectedSub}`;
-                  localStorage.removeItem(key);
+                  // ลบจาก API + state
+                  if (sessionKeyRef.current) {
+                    fetch(`/api/scan-session/${sessionKeyRef.current}`, { method: 'DELETE' })
+                      .catch(err => console.error('Failed to clear:', err))
+                  }
                   setScannedSerials(new Set());
                   scannedSerialsRef.current = new Set();
                 }}
