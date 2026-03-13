@@ -35,6 +35,7 @@ export default function StockCount() {
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [searchQ, setSearchQ] = useState("");
+  const [manualInput, setManualInput] = useState("");
 
   // Scanner state
   const [scanMode, setScanMode] = useState(false)
@@ -186,17 +187,50 @@ export default function StockCount() {
     setSelectedCat(catKey);
     setSelectedSub(null);
     setSavedCount(0);
-    setScannedSerials(new Set());
-    scannedSerialsRef.current = new Set();
+    // อย่า reset scannedSerials ตรงนี้ เพราะต่อไปจะ load จาก localStorage ใน handleSelectSub
     setStep("subcategory");
   };
 
   const handleSelectSub = (sub) => {
     setSelectedSub(sub);
     setSearchQ("");
-    setScannedSerials(new Set());
-    scannedSerialsRef.current = new Set();
     setStep("count");
+    
+    // โหลด localStorage สำหรับ subcategory นี้
+    const key = `scan_${selectedCat}_${sub}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        const set = new Set(JSON.parse(saved));
+        setScannedSerials(set);
+        scannedSerialsRef.current = set;
+      } catch (e) {
+        console.error('Failed to load from localStorage:', e);
+        setScannedSerials(new Set());
+        scannedSerialsRef.current = new Set();
+      }
+    } else {
+      setScannedSerials(new Set());
+      scannedSerialsRef.current = new Set();
+    }
+  };
+
+  // บันทึก serialize scannedSerials ไป localStorage
+  useEffect(() => {
+    if (step === 'count' && selectedCat && selectedSub) {
+      const key = `scan_${selectedCat}_${selectedSub}`;
+      const arr = Array.from(scannedSerials);
+      localStorage.setItem(key, JSON.stringify(arr));
+    }
+  }, [scannedSerials, step, selectedCat, selectedSub]);
+
+  // ประมวลผล manual input — comma/newline separated
+  const handleAddManual = (text) => {
+    setManualInput('');
+    const codes = text.split(/[,\n]/).map(s => s.trim()).filter(s => s);
+    for (const code of codes) {
+      handleScanResult(code);
+    }
   };
 
   const handleBack = () => {
@@ -413,10 +447,31 @@ export default function StockCount() {
                 <Scan className="w-4 h-4" />
                 <span className="hidden sm:inline">{gunMode ? 'ยิงอยู่' : 'เครื่องยิง'}</span>
                 {gunMode && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-              </div>
-              <span className="text-slate-500 text-sm shrink-0">
+              </div>              <span className="text-slate-500 text-sm shrink-0">
                 {filtered.length} รายการ
               </span>
+            </div>
+
+            {/* Manual Serial Input */}
+            <div className="mb-3 bg-slate-800 border border-slate-700 rounded-xl p-3">
+              <p className="text-xs text-slate-400 mb-2">พิมพ์ Serial (คั่นด้วย , หรือ Enter)</p>
+              <textarea
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    handleAddManual(manualInput);
+                  }
+                }}
+                placeholder="VT0001, VT0002, VT0003..."
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-16 font-mono"
+              />
+              <button
+                onClick={() => handleAddManual(manualInput)}
+                className="mt-2 w-full px-3 py-1.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded-lg text-xs font-medium transition-all"
+              >
+                เพิ่มทั้งหมด (Ctrl+Enter)
+              </button>
             </div>
 
             {/* Camera preview */}
@@ -562,6 +617,8 @@ export default function StockCount() {
 
               <button
                 onClick={() => {
+                  const key = `scan_${selectedCat}_${selectedSub}`;
+                  localStorage.removeItem(key);
                   setScannedSerials(new Set());
                   scannedSerialsRef.current = new Set();
                 }}
