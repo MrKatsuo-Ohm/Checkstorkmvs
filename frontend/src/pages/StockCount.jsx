@@ -64,9 +64,13 @@ export default function StockCount() {
       serial,
       serialLower: serial.toLowerCase(),
       item,
-      scanned: scannedSerials.has(serial.toLowerCase()),
+      scanned: scannedSerialsRef.current.has(serial.toLowerCase()),
     }))
-  );
+  ).sort((a, b) => {
+    // ยังไม่นับขึ้นบน นับแล้วลงล่าง
+    if (a.scanned === b.scanned) return 0;
+    return a.scanned ? 1 : -1;
+  });
 
   const filtered = searchQ.trim()
     ? serialRows.filter(r =>
@@ -193,15 +197,23 @@ export default function StockCount() {
           };
           rafIdRef.current = requestAnimationFrame(loop);
         } else {
-          // ZXing fallback (iOS Safari)
+          // ZXing fallback (iOS Safari) — ใช้ decodeFromVideoDevice ที่ work บน iOS
           const { BrowserMultiFormatReader } = await import('@zxing/browser');
-          const reader = new BrowserMultiFormatReader();
+          const hints = new Map();
+          // ไม่จำกัด format ให้ ZXing ลอง decode ทุก format
+          const reader = new BrowserMultiFormatReader(hints, {
+            delayBetweenScanAttempts: 300,
+            delayBetweenScanSuccess: 1500,
+          });
           codeReaderRef.current = reader;
-          reader.decodeFromStream(streamRef.current, video, (result) => {
-            if (cancelled || !result || scanCooldownRef.current) return;
-            scanCooldownRef.current = true;
-            handleScanResult(result.getText());
-            setTimeout(() => { scanCooldownRef.current = false; }, 1500);
+          // decodeFromVideoDevice(deviceId=undefined ใช้กล้องหลัง, videoElement)
+          reader.decodeFromVideoDevice(undefined, video, (result, err) => {
+            if (cancelled || scanCooldownRef.current) return;
+            if (result) {
+              scanCooldownRef.current = true;
+              handleScanResultRef.current?.(result.getText());
+              setTimeout(() => { scanCooldownRef.current = false; }, 1500);
+            }
           });
         }
       } catch (err) {
@@ -376,7 +388,11 @@ export default function StockCount() {
                     <Icon className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <p className="font-semibold text-white text-sm">{catObj.label || catObj.name}</p>
+                    <p className="font-semibold text-white text-sm">{catObj.label || {
+                      hardware:'ฮาร์ดแวร์', accessories:'อุปกรณ์เสริม', monitors:'จอมอนิเตอร์',
+                      networking:'อุปกรณ์เครือข่าย', software:'ซอฟต์แวร์', storage:'อุปกรณ์จัดเก็บ',
+                      notebook:'โน้ตบุ๊ก', peripherals:'อุปกรณ์ต่อพ่วง', Printer:'Printer & Ink', misc:'อุปกรณ์อื่นๆ'
+                    }[catObj.name] || catObj.name}</p>
                     <p className="text-xs text-slate-400 mt-0.5">{catItems.length} รายการ</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-blue-400 self-end" />
