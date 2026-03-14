@@ -44,12 +44,15 @@ export default function StockCount() {
   const [scanFlash, setScanFlash] = useState(false)
   const videoRef = useRef(null)
   const codeReaderRef = useRef(null)  // ZXing reader
+  const streamRef = useRef(null)
+  const scanCooldownRef = useRef(false)
   const gunBufferRef = useRef('')
   const gunTimerRef = useRef(null)
   // ref เพื่อให้ handleScanResult เข้าถึง scannedSerials ล่าสุดเสมอ
   const scannedSerialsRef = useRef(new Set())
   const sessionKeyRef = useRef(null)
   const syncTimerRef = useRef(null)
+  const audioCtxRef = useRef(null)
 
   // Barcode gun: รับ input keyboard เร็วๆ (เฉพาะตอน gunMode เปิด)
   useEffect(() => {
@@ -80,50 +83,146 @@ export default function StockCount() {
     }
   }, [scannedSerials, step])
 
-  // Camera scanner — ใช้ ZXing รองรับ iOS Safari
+  // Camera scanner — ใช้ ZXing + getUserMedia โดยตรง รองรับ Android & iOS
   const startCamera = async () => {
     try {
-      const { BrowserMultiFormatReader } = await import('@zxing/browser')
-      const reader = new BrowserMultiFormatReader()
-      codeReaderRef.current = reader
+      // ขอ stream กล้องหลังโดยตรง
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      })
+      streamRef.current = stream
       setScanMode(true)
     } catch (err) {
       alert('ไม่สามารถเปิดกล้องได้: ' + err.message)
     }
   }
 
-  // เมื่อ video element render แล้ว ค่อย start ZXing
+  // เมื่อ video element render แล้ว ค่อย attach stream และ start ZXing
   useEffect(() => {
-    if (!scanMode || !videoRef.current || !codeReaderRef.current) return
-    const reader = codeReaderRef.current
-    let controls = null
+    if (!scanMode || !videoRef.current || !streamRef.current) return
+    const video = videoRef.current
+    video.srcObject = streamRef.current
+    video.setAttribute('playsinline', true)
+    video.play().catch(() => {})
 
-    reader.decodeFromVideoDevice(
-      undefined, // undefined = กล้องหลัง (environment)
-      videoRef.current,
-      (result, err) => {
-        if (result && !scanCooldownRef.current) {
-          scanCooldownRef.current = true
-          handleScanResult(result.getText())
-          setTimeout(() => { scanCooldownRef.current = false }, 1500)
+    let controls = null
+    let cancelled = false
+
+    const startDecoding = async () => {
+      try {
+        const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('@zxing/browser')
+
+        // hints: รองรับ barcode format หลักๆ ทั้งหมด
+        const hints = new Map()
+        hints.set(DecodeHintType?.TRY_HARDER ?? 3, true)
+        hints.set(DecodeHintType?.POSSIBLE_FORMATS ?? 2, [
+          BarcodeFormat?.CODE_128,
+          BarcodeFormat?.CODE_39,
+          BarcodeFormat?.EAN_13,
+          BarcodeFormat?.EAN_8,
+          BarcodeFormat?.QR_CODE,
+          BarcodeFormat?.DATA_MATRIX,
+          BarcodeFormat?.UPC_A,
+          BarcodeFormat?.UPC_E,
+          BarcodeFormat?.ITF,
+          BarcodeFormat?.CODABAR,
+        ].filter(Boolean))
+
+        const reader = new BrowserMultiFormatReader(hints)
+        codeReaderRef.current = reader
+
+        controls = await reader.decodeFromVideoElement(video, (result, err) => {
+          if (cancelled) return
+          if (result && !scanCooldownRef.current) {
+            scanCooldownRef.current = true
+            handleScanResult(result.getText())
+            setTimeout(() => { scanCooldownRef.current = false }, 1500)
+          }
+        })
+      } catch (err) {
+        if (!cancelled) {
+          console.error('ZXing error:', err)
+          alert('ไม่สามารถเริ่ม scanner ได้: ' + err.message)
+          setScanMode(false)
         }
       }
-    ).then(ctrl => {
-      controls = ctrl
-    }).catch(err => {
-      alert('ไม่สามารถเปิดกล้องได้: ' + err.message)
-      setScanMode(false)
-    })
+    }
 
-    return () => { controls?.stop?.() }
+    startDecoding()
+
+    return () => {
+      cancelled = true
+      controls?.stop?.()
+      codeReaderRef.current?.reset?.()
+      codeReaderRef.current = null
+    }
   }, [scanMode])
 
   const stopCamera = () => {
     codeReaderRef.current?.reset?.()
     codeReaderRef.current = null
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+    if (videoRef.current) videoRef.current.srcObject = null
     setScanMode(false)
     setScanResult(null)
   }
+
+  // ── เสียง beep ─────────────────────────────────────────────
+  const beep = useCallback((type = 'found') => {
+    try {
+      if (!audioCtxRef.current)
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
+      const ctx = audioCtxRef.current
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+
+      if (type === 'found') {
+        // เสียงสูง สั้น 2 ครั้ง = ถูก ✓
+        osc.frequency.value = 1200
+        gain.gain.setValueAtTime(0.4, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.12)
+        // ครั้งที่ 2
+        const osc2 = ctx.createOscillator()
+        const gain2 = ctx.createGain()
+        osc2.connect(gain2); gain2.connect(ctx.destination)
+        osc2.frequency.value = 1500
+        gain2.gain.setValueAtTime(0.4, ctx.currentTime + 0.15)
+        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28)
+        osc2.start(ctx.currentTime + 0.15)
+        osc2.stop(ctx.currentTime + 0.28)
+      } else if (type === 'duplicate') {
+        // เสียงกลาง ยาว = ซ้ำ ⚠
+        osc.frequency.value = 700
+        osc.type = 'square'
+        gain.gain.setValueAtTime(0.3, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.35)
+      } else {
+        // เสียงต่ำ ยาว = ผิด ✗
+        osc.frequency.value = 300
+        osc.type = 'sawtooth'
+        gain.gain.setValueAtTime(0.4, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+        osc.start(ctx.currentTime)
+        osc.stop(ctx.currentTime + 0.5)
+      }
+    } catch (e) {
+      console.warn('beep error:', e)
+    }
+  }, [])
 
   const handleScanResult = useCallback((code) => {
     const codeLower = code.toLowerCase()
@@ -133,6 +232,7 @@ export default function StockCount() {
       const item = items.find(i =>
         Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower)
       )
+      beep('duplicate')
       setScanResult({ serial: code, item, status: 'duplicate' })
       setTimeout(() => { setScanResult(null) }, 1500)
       return
@@ -159,6 +259,7 @@ export default function StockCount() {
         }).catch(err => console.error('Failed to sync:', err))
       }
 
+      beep('found')
       setScanResult({ serial: code, item: found, status: 'found' })
       setScanFlash(true)
       setTimeout(() => setScanFlash(false), 600)
@@ -166,13 +267,14 @@ export default function StockCount() {
         document.getElementById(`serial-${codeLower}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }, 200)
     } else {
+      beep('notfound')
       setScanResult({ serial: code, item: null, status: 'notfound' })
     }
 
     setTimeout(() => {
       setScanResult(null)
     }, 1500)
-  }, [items])
+  }, [items, beep])
 
   // สร้าง flat list ของ serials ในหมวดที่เลือก
   // แต่ละ row = { serial, item, scanned }
