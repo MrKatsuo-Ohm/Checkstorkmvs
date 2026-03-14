@@ -261,7 +261,6 @@ export default function StockCount() {
     const today = new Date().toISOString().slice(0, 10);
     const key = `scan_${selectedCat}_${sub}_${today}`.replace(/[/\s]/g, '_');
     sessionKeyRef.current = key;
-    // โหลด session + เช็ค lock พร้อมกัน
     Promise.all([
       fetch(`/api/scan-session/${key}`).then(r => r.json()).catch(() => ({ serials: [] })),
       fetch(`/api/count-lock/${key}`).then(r => r.json()).catch(() => ({ locked: false })),
@@ -318,7 +317,6 @@ export default function StockCount() {
     }
     scannedSerialsRef.current = new Set();
     setScannedSerials(new Set());
-    // ล็อค — ป้องกันนับซ้ำจนกว่าจะลบประวัติ
     if (sessionKeyRef.current) {
       fetch(`/api/count-lock/${sessionKeyRef.current}`, { method: 'POST' }).catch(() => {});
     }
@@ -425,7 +423,11 @@ export default function StockCount() {
               </div>
               <p className="text-white font-bold text-lg mb-1">นับเสร็จแล้ว</p>
               <p className="text-slate-400 text-sm mb-1">{selectedSub}</p>
-              <p className="text-slate-500 text-xs">ลบประวัติการนับเพื่อนับใหม่</p>
+              <p className="text-slate-500 text-xs mb-4">ลบประวัติการนับเพื่อนับใหม่</p>
+              <button onClick={handleBack}
+                className="flex items-center gap-1.5 mx-auto px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-medium transition-all">
+                <ChevronLeft className="w-4 h-4" /> กลับ
+              </button>
             </div>
           </div>
         )}
@@ -464,18 +466,23 @@ export default function StockCount() {
               <span className="text-slate-500 text-sm shrink-0">{filtered.length} รายการ</span>
             </div>
 
-            {/* Manual input */}
-            <div className="mb-3 bg-slate-800 border border-slate-700 rounded-xl p-3">
-              <p className="text-xs text-slate-400 mb-2">พิมพ์ Serial (คั่นด้วย , หรือ Enter)</p>
-              <textarea value={manualInput} onChange={e => setManualInput(e.target.value)}
-                onKeyDown={e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') handleAddManual(manualInput); }}
-                placeholder="VT0001, VT0002, VT0003..."
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-16 font-mono" />
-              <button onClick={() => handleAddManual(manualInput)}
-                className="mt-2 w-full px-3 py-1.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded-lg text-xs font-medium transition-all">
-                เพิ่มทั้งหมด (Ctrl+Enter)
-              </button>
-            </div>
+            {/* Manual input — compact, collapsible */}
+            <details className="mb-3 group">
+              <summary className="flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-400 cursor-pointer hover:text-white list-none">
+                <span className="flex-1">พิมพ์ Serial (คั่นด้วย , หรือ Enter)</span>
+                <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
+              </summary>
+              <div className="mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2 flex gap-2">
+                <textarea value={manualInput} onChange={e => setManualInput(e.target.value)}
+                  onKeyDown={e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') handleAddManual(manualInput); }}
+                  placeholder="VT0001, VT0002..."
+                  className="flex-1 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none h-10 font-mono" />
+                <button onClick={() => handleAddManual(manualInput)}
+                  className="px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded-lg text-xs font-medium transition-all whitespace-nowrap self-end">
+                  เพิ่ม
+                </button>
+              </div>
+            </details>
 
             {/* Camera */}
             {scanMode && (
