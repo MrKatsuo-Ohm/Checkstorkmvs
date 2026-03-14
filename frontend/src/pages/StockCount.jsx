@@ -39,7 +39,7 @@ export default function StockCount() {
   const gunTimerRef       = useRef(null);
   const scannedSerialsRef = useRef(new Set());
   const sessionKeyRef     = useRef(null);
-  const audioCtxRef       = useRef(null);
+  const audioCtxRef       = useRef(null); // ไม่ใช้แล้ว แต่เก็บไว้ไม่ให้ error
   const handleScanResultRef = useRef(null);
 
   // ── Computed ─────────────────────────────────────────────────
@@ -78,47 +78,30 @@ export default function StockCount() {
   const totalSerials = serialRows.length;
   const scannedCount = scannedSerialsRef.current.size;
 
-  // ── เสียง beep (เลียนแบบเครื่องสแกน) ──────────────────────────
+  // ── เสียง beep (ใช้ไฟล์ .mp3) ──────────────────────────────
   const beep = useCallback((type = 'found') => {
     try {
-      if (!audioCtxRef.current)
-        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = audioCtxRef.current;
-
-      const playTone = (freq, startTime, duration, vol = 0.6) => {
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        // filter ทำให้เสียงกลมขึ้น เหมือนลำโพงเล็กๆ
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = freq;
-        filter.Q.value = 1.5;
-        o.connect(filter); filter.connect(g); g.connect(ctx.destination);
-        o.type = 'square'; // square wave เหมือนบัซเซอร์จริง
-        o.frequency.value = freq;
-        // envelope: attack เร็ว decay นุ่ม
-        g.gain.setValueAtTime(0, startTime);
-        g.gain.linearRampToValueAtTime(vol, startTime + 0.005);
-        g.gain.setValueAtTime(vol, startTime + duration - 0.02);
-        g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-        o.start(startTime);
-        o.stop(startTime + duration);
-      };
-
-      const t = ctx.currentTime;
-      if (type === 'found') {
-        // เสียงปี๊บสั้นๆ เดียว — เหมือน Honeywell/Zebra scanner
-        playTone(3800, t, 0.08, 0.5);
-      } else if (type === 'duplicate') {
-        // สองเสียงต่ำลงมา — เตือนซ้ำ
-        playTone(2400, t, 0.06, 0.4);
-        playTone(1800, t + 0.1, 0.08, 0.4);
-      } else {
-        // สามเสียงต่ำ — error
-        playTone(1200, t, 0.06, 0.5);
-        playTone(1000, t + 0.09, 0.06, 0.5);
-        playTone(800,  t + 0.18, 0.12, 0.5);
-      }
+      const src =
+        type === 'found'     ? '/sounds/beep-found.mp3' :
+        type === 'duplicate' ? '/sounds/beep-duplicate.mp3' :
+                               '/sounds/beep-error.mp3';
+      const audio = new Audio(src);
+      audio.volume = 0.8;
+      audio.play().catch(() => {
+        // fallback: Web Audio ถ้าไฟล์หาไม่เจอ
+        try {
+          if (!audioCtxRef.current)
+            audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+          const ctx = audioCtxRef.current;
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.type = 'square';
+          o.frequency.value = type === 'found' ? 3800 : type === 'duplicate' ? 2400 : 1200;
+          g.gain.setValueAtTime(0.4, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+          o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.1);
+        } catch {}
+      });
     } catch {}
   }, []);
 
