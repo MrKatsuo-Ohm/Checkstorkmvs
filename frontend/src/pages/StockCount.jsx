@@ -120,12 +120,13 @@ export default function StockCount() {
     const codeLower = code.toLowerCase();
     if (scannedSerialsRef.current.has(codeLower)) {
       beep('duplicate');
-      const item = items.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
+      const item = listItems.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
       setScanResult({ serial: code, item, status: 'duplicate' });
       setTimeout(() => setScanResult(null), 1500);
       return;
     }
-    const found = items.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
+    // ค้นหาเฉพาะใน subcategory ที่เลือกอยู่เท่านั้น
+    const found = listItems.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
     if (found) {
       beep('found');
       scannedSerialsRef.current = new Set(scannedSerialsRef.current);
@@ -149,7 +150,7 @@ export default function StockCount() {
       setScanResult({ serial: code, item: null, status: 'notfound' });
     }
     setTimeout(() => setScanResult(null), 1500);
-  }, [items, beep]);
+  }, [items, listItems, beep]);
 
   // อัปเดต ref ให้ camera/gun ใช้ version ล่าสุดเสมอ
   useEffect(() => { handleScanResultRef.current = handleScanResult; }, [handleScanResult]);
@@ -319,7 +320,20 @@ export default function StockCount() {
 
   const handleAddManual = (text) => {
     setManualInput('');
-    text.split(/[,\n]/).map(s => s.trim()).filter(Boolean).forEach(code => handleScanResultRef.current?.(code));
+    text.split(/[,\n]/).map(s => s.trim()).filter(Boolean).forEach(input => {
+      // ถ้า input สั้น (≤ 6 ตัว) → ลอง match 4 ตัวท้ายของ serial ใน listItems
+      if (input.length <= 6) {
+        const inputLower = input.toLowerCase();
+        const matchedSerial = listItems
+          .flatMap(i => i.serials || [])
+          .find(s => s.toLowerCase().endsWith(inputLower));
+        if (matchedSerial) {
+          handleScanResultRef.current?.(matchedSerial);
+          return;
+        }
+      }
+      handleScanResultRef.current?.(input);
+    });
   };
 
   // ── Save ──────────────────────────────────────────────────────
