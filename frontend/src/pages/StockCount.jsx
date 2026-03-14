@@ -40,7 +40,7 @@ export default function StockCount() {
   const scannedSerialsRef = useRef(new Set());
   const sessionKeyRef     = useRef(null);
   const audioCtxRef       = useRef(null);
-  const handleScanResultRef = useRef(null); // เพื่อให้ camera loop ใช้ version ล่าสุดเสมอ
+  const handleScanResultRef = useRef(null);
 
   // ── Computed ─────────────────────────────────────────────────
   const cat = selectedCat
@@ -76,7 +76,7 @@ export default function StockCount() {
     : serialRows;
 
   const totalSerials = serialRows.length;
-  const scannedCount = scannedSerials.size;
+  const scannedCount = scannedSerialsRef.current.size;
 
   // ── เสียง beep ────────────────────────────────────────────────
   const beep = useCallback((type = 'found') => {
@@ -138,7 +138,6 @@ export default function StockCount() {
     }
     setTimeout(() => setScanResult(null), 1500);
   }, [items, beep]);
-  // อัปเดต ref ให้ camera loop ใช้ version ล่าสุดเสมอ (ไม่ต้อง re-init camera)
   useEffect(() => { handleScanResultRef.current = handleScanResult; }, [handleScanResult]);
 
   // ── Camera ───────────────────────────────────────────────────
@@ -179,7 +178,7 @@ export default function StockCount() {
                 const barcodes = await detector.detect(video);
                 if (barcodes.length > 0 && barcodes[0].rawValue) {
                   scanCooldownRef.current = true;
-                  handleScanResultRef.current?.(barcodes[0].rawValue);
+                  handleScanResult(barcodes[0].rawValue);
                   setTimeout(() => { scanCooldownRef.current = false; }, 1500);
                 }
               } catch {}
@@ -195,7 +194,7 @@ export default function StockCount() {
           reader.decodeFromStream(streamRef.current, video, (result) => {
             if (cancelled || !result || scanCooldownRef.current) return;
             scanCooldownRef.current = true;
-            handleScanResultRef.current?.(result.getText());
+            handleScanResult(result.getText());
             setTimeout(() => { scanCooldownRef.current = false; }, 1500);
           });
         }
@@ -212,7 +211,7 @@ export default function StockCount() {
       codeReaderRef.current?.reset?.();
       codeReaderRef.current = null;
     };
-  }, [scanMode]); // ไม่ใส่ handleScanResult ใน dep — ใช้ ref แทน
+  }, [scanMode, handleScanResult]);
 
   const stopCamera = () => {
     if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
@@ -233,6 +232,7 @@ export default function StockCount() {
       if (e.key === 'Enter') {
         const code = gunBufferRef.current.trim();
         gunBufferRef.current = '';
+        // ใช้ ref เสมอ — ไม่มี stale closure
         if (code) handleScanResultRef.current?.(code);
       } else if (e.key.length === 1) {
         gunBufferRef.current += e.key;
@@ -242,41 +242,7 @@ export default function StockCount() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [step, gunMode]); // ใช้ ref แทน handleScanResult
-
-  // ── Restore state เมื่อ refresh ────────────────────────────
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(sessionStorage.getItem('sc_nav') || '{}')
-      if (saved.step === 'count' && saved.cat && saved.sub) {
-        setSelectedCat(saved.cat)
-        setSelectedSub(saved.sub)
-        setStep('count')
-        const today = new Date().toISOString().slice(0, 10)
-        const key = `scan_${saved.cat}_${saved.sub}_${today}`.replace(/[/\s]/g, '_')
-        sessionKeyRef.current = key
-        fetch(`/api/scan-session/${key}`)
-          .then(r => r.json())
-          .then(data => {
-            const s = new Set(data.serials || [])
-            scannedSerialsRef.current = s
-            setScannedSerials(new Set(s))
-          })
-          .catch(() => {})
-      }
-    } catch {}
-  }, [])
-
-  // save nav state ทุกครั้งที่เปลี่ยน step
-  useEffect(() => {
-    try {
-      if (step === 'count' && selectedCat && selectedSub) {
-        sessionStorage.setItem('sc_nav', JSON.stringify({ step, cat: selectedCat, sub: selectedSub }))
-      } else if (step === 'category') {
-        sessionStorage.removeItem('sc_nav')
-      }
-    } catch {}
-  }, [step, selectedCat, selectedSub])
+  }, [step, gunMode]); // ไม่ใส่ handleScanResult — ใช้ ref แทน
 
   // ── Session: โหลดเมื่อเลือก subcategory ──────────────────────
   const handleSelectCat = (key) => {
@@ -351,19 +317,12 @@ export default function StockCount() {
   };
 
   const handleReset = () => {
-    // ลบ serials ใน session แต่คง key ไว้ เพื่อให้ยิงใหม่ได้ทันที
     if (sessionKeyRef.current) {
       fetch(`/api/scan-session/${sessionKeyRef.current}`, { method: 'DELETE' }).catch(() => {});
     }
     scannedSerialsRef.current = new Set();
     setScannedSerials(new Set());
     setSavedCount(0);
-    // สร้าง session key ใหม่สำหรับรอบนับใหม่
-    if (selectedCat && selectedSub) {
-      const today = new Date().toISOString().slice(0, 10)
-      const key = `scan_${selectedCat}_${selectedSub}_${today}_${Date.now()}`.replace(/[/\s]/g, '_')
-      sessionKeyRef.current = key
-    }
   };
 
   // ── UI ────────────────────────────────────────────────────────
