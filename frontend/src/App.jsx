@@ -29,34 +29,24 @@ function AppContent() {
     if (currentUser) fetchItems()
   }, [currentUser, fetchItems])
 
-  // ── init: set initial history state ─────────────────────────
+  // init history
   useEffect(() => {
-    const hash = window.location.hash.replace('#', '') || 'dashboard'
-    setViewState(hash)
-    // replaceState เพื่อให้ state เริ่มต้นมี view
-    window.history.replaceState({ view: hash, countStep: 'category' }, '', `#${hash}`)
+    window.history.replaceState({ view: 'dashboard' }, '', '#dashboard')
   }, [])
 
-  // ── navigate: push history ───────────────────────────────────
+  // navigate — push เฉพาะตอนเปลี่ยนหน้าระดับ App
   const setView = useCallback((newView) => {
     setViewState(newView)
-    window.history.pushState(
-      { view: newView, countStep: 'category' },
-      '', `#${newView}`
-    )
+    window.history.pushState({ view: newView }, '', `#${newView}`)
   }, [])
 
-  // ── popstate: handle back/forward ────────────────────────────
+  // popstate — รับเฉพาะ event ที่ countStep ไม่มี (StockCount จัดการ countStep เอง)
   useEffect(() => {
     const onPop = (e) => {
       const s = e.state
+      if (s?.countStep) return  // StockCount จัดการเอง
       const v = s?.view || window.location.hash.replace('#', '') || 'dashboard'
-      // ถ้าอยู่หน้า count และ StockCount ยังไม่ได้จัดการ (step = category)
-      // หรือออกจากหน้า count → setView
-      if (v !== 'count' || s?.countStep === 'category') {
-        setViewState(v)
-      }
-      // ถ้า v === 'count' และ countStep !== 'category' → StockCount จัดการเอง
+      setViewState(v)
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)

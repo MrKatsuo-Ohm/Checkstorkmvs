@@ -265,40 +265,37 @@ export default function StockCount() {
     setScanResult(null);
   };
 
-  // ── Browser back: pushState ทุก step ───────────────────────
-  const pushCountState = useCallback((s, cat=null, sub=null) => {
-    window.history.pushState({ view:'count', countStep:s, countCat:cat, countSub:sub }, '', '#count')
-  }, [])
-
-  // push เมื่อเลือก cat หรือ sub (ไม่ใช่ตอน mount)
-  const prevStepRef = useRef(null)
+  // ── Browser back button ─────────────────────────────────────
+  // เมื่อ mount หน้า StockCount: push 3 entries ให้มี buffer กดกลับ
   useEffect(() => {
-    if (prevStepRef.current === null) { prevStepRef.current = step; return }
-    if (step !== prevStepRef.current) {
-      prevStepRef.current = step
-      pushCountState(step, selectedCat, selectedSub)
-    }
-  }, [step, selectedCat, selectedSub, pushCountState])
+    // push ประวัติ 3 ระดับ: category, subcategory, count
+    // เพื่อให้กดกลับได้ 3 ครั้งก่อนออกจากหน้า count
+    window.history.pushState({ countStep: 'category' }, '', '#count')
+    window.history.pushState({ countStep: 'subcategory' }, '', '#count')
+    window.history.pushState({ countStep: 'count' }, '', '#count')
 
-  useEffect(() => {
     const onPop = (e) => {
       const s = e.state
-      if (!s || s.view !== 'count') return
-      // ย้อน step ตาม countStep ที่อยู่ใน state
+      if (!s?.countStep) return
+
       if (s.countStep === 'subcategory') {
+        // กำลังย้อนจาก count → subcategory
         stopCamera()
         setStep('subcategory')
         setSelectedSub(null)
       } else if (s.countStep === 'category') {
-        stopCamera()
+        // กำลังย้อนจาก subcategory → category
         setStep('category')
         setSelectedCat(null)
         setSelectedSub(null)
       }
-      // ถ้าไม่มี countStep → App.jsx จัดการเอง (กลับหน้าก่อน count)
+      // countStep === undefined → App.jsx จัดการ (ออกจาก count)
     }
+
     window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+    }
   }, [])
 
   // ── Barcode Gun ───────────────────────────────────────────────
