@@ -1,13 +1,20 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   ChevronRight, ChevronLeft, CheckCircle2, RotateCcw, Send,
-  Package, ClipboardCheck, X, Search, Scan, Camera, CameraOff, Zap, AlertCircle,
+  Package, ClipboardCheck, X, Search, Scan, Camera, CameraOff, Zap,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { useStock } from "../context/StockContext";
 import { useUser } from "../context/UserContext";
 import { useHistory } from "../context/HistoryContext";
 import { categories } from "../utils/constants";
+
+const CAT_LABELS = {
+  hardware:'ฮาร์ดแวร์', accessories:'อุปกรณ์เสริม', monitors:'จอมอนิเตอร์',
+  networking:'อุปกรณ์เครือข่าย', software:'ซอฟต์แวร์', storage:'อุปกรณ์จัดเก็บ',
+  notebook:'โน้ตบุ๊ก', peripherals:'อุปกรณ์ต่อพ่วง', Printer:'Printer & Ink', misc:'อุปกรณ์อื่นๆ',
+};
+const getCatLabel = (key) => CAT_LABELS[key] || key;
 
 export default function StockCount() {
   const { items } = useStock();
@@ -19,6 +26,7 @@ export default function StockCount() {
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedSub, setSelectedSub] = useState(null);
   const [scannedSerials, setScannedSerials] = useState(new Set());
+  const [isLocked, setIsLocked]       = useState(false);
   const [note, setNote]               = useState("");
   const [saving, setSaving]           = useState(false);
   const [savedCount, setSavedCount]   = useState(0);
@@ -30,16 +38,16 @@ export default function StockCount() {
   const [scanFlash, setScanFlash]     = useState(false);
 
   // ── Refs ─────────────────────────────────────────────────────
-  const videoRef          = useRef(null);
-  const codeReaderRef     = useRef(null);
-  const streamRef         = useRef(null);
-  const rafIdRef          = useRef(null);
-  const scanCooldownRef   = useRef(false);
-  const gunBufferRef      = useRef('');
-  const gunTimerRef       = useRef(null);
-  const scannedSerialsRef = useRef(new Set());
-  const sessionKeyRef     = useRef(null);
-  const audioCtxRef       = useRef(null); // ไม่ใช้แล้ว แต่เก็บไว้ไม่ให้ error
+  const videoRef            = useRef(null);
+  const codeReaderRef       = useRef(null);
+  const streamRef           = useRef(null);
+  const rafIdRef            = useRef(null);
+  const scanCooldownRef     = useRef(false);
+  const gunBufferRef        = useRef('');
+  const gunTimerRef         = useRef(null);
+  const scannedSerialsRef   = useRef(new Set());
+  const sessionKeyRef       = useRef(null);
+  const audioCtxRef         = useRef(null);
   const handleScanResultRef = useRef(null);
 
   // ── Computed ─────────────────────────────────────────────────
@@ -59,14 +67,18 @@ export default function StockCount() {
 
   const listItems = items.filter(i => i.category === selectedCat && i.subcategory === selectedSub);
 
+  // sort: ยังไม่นับขึ้นบน นับแล้วลงล่าง — ใช้ ref เพื่อ sync ทันที
   const serialRows = listItems.flatMap(item =>
     (item.serials || []).map(serial => ({
       serial,
       serialLower: serial.toLowerCase(),
       item,
-      scanned: scannedSerials.has(serial.toLowerCase()),
+      scanned: scannedSerialsRef.current.has(serial.toLowerCase()),
     }))
-  );
+  ).sort((a, b) => {
+    if (a.scanned === b.scanned) return 0;
+    return a.scanned ? 1 : -1;
+  });
 
   const filtered = searchQ.trim()
     ? serialRows.filter(r =>
@@ -78,17 +90,15 @@ export default function StockCount() {
   const totalSerials = serialRows.length;
   const scannedCount = scannedSerialsRef.current.size;
 
-  // ── เสียง beep (ใช้ไฟล์ .mp3) ──────────────────────────────
+  // ── เสียง beep (mp3 + Web Audio fallback) ────────────────────
   const beep = useCallback((type = 'found') => {
     try {
-      const src =
-        type === 'found'     ? '/sounds/beep-found.mp3' :
-        type === 'duplicate' ? '/sounds/beep-duplicate.mp3' :
-                               '/sounds/beep-error.mp3';
+      const src = type === 'found' ? '/sounds/beep-found.mp3'
+                : type === 'duplicate' ? '/sounds/beep-duplicate.mp3'
+                : '/sounds/beep-error.mp3';
       const audio = new Audio(src);
       audio.volume = 0.8;
       audio.play().catch(() => {
-        // fallback: Web Audio ถ้าไฟล์หาไม่เจอ
         try {
           if (!audioCtxRef.current)
             audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -108,7 +118,6 @@ export default function StockCount() {
   // ── handleScanResult ─────────────────────────────────────────
   const handleScanResult = useCallback((code) => {
     const codeLower = code.toLowerCase();
-
     if (scannedSerialsRef.current.has(codeLower)) {
       beep('duplicate');
       const item = items.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
@@ -116,15 +125,12 @@ export default function StockCount() {
       setTimeout(() => setScanResult(null), 1500);
       return;
     }
-
     const found = items.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
-
     if (found) {
       beep('found');
-      const newSet = new Set(scannedSerialsRef.current);
-      newSet.add(codeLower);
-      scannedSerialsRef.current = newSet;
-      setScannedSerials(new Set(newSet));
+      scannedSerialsRef.current = new Set(scannedSerialsRef.current);
+      scannedSerialsRef.current.add(codeLower);
+      setScannedSerials(new Set(scannedSerialsRef.current));
       if (sessionKeyRef.current) {
         fetch(`/api/scan-session/${sessionKeyRef.current}`, {
           method: 'POST',
@@ -144,6 +150,8 @@ export default function StockCount() {
     }
     setTimeout(() => setScanResult(null), 1500);
   }, [items, beep]);
+
+  // อัปเดต ref ให้ camera/gun ใช้ version ล่าสุดเสมอ
   useEffect(() => { handleScanResultRef.current = handleScanResult; }, [handleScanResult]);
 
   // ── Camera ───────────────────────────────────────────────────
@@ -173,7 +181,7 @@ export default function StockCount() {
     const initScanner = async () => {
       try {
         if ('BarcodeDetector' in window) {
-          // Native BarcodeDetector (Android Chrome)
+          // Android Chrome — Native BarcodeDetector
           const detector = new window.BarcodeDetector({
             formats: ['code_128','code_39','ean_13','ean_8','qr_code','upc_a','upc_e','itf','codabar','data_matrix'],
           });
@@ -184,7 +192,7 @@ export default function StockCount() {
                 const barcodes = await detector.detect(video);
                 if (barcodes.length > 0 && barcodes[0].rawValue) {
                   scanCooldownRef.current = true;
-                  handleScanResult(barcodes[0].rawValue);
+                  handleScanResultRef.current?.(barcodes[0].rawValue);
                   setTimeout(() => { scanCooldownRef.current = false; }, 1500);
                 }
               } catch {}
@@ -193,16 +201,42 @@ export default function StockCount() {
           };
           rafIdRef.current = requestAnimationFrame(loop);
         } else {
-          // ZXing fallback (iOS Safari)
-          const { BrowserMultiFormatReader } = await import('@zxing/browser');
-          const reader = new BrowserMultiFormatReader();
-          codeReaderRef.current = reader;
-          reader.decodeFromStream(streamRef.current, video, (result) => {
-            if (cancelled || !result || scanCooldownRef.current) return;
-            scanCooldownRef.current = true;
-            handleScanResult(result.getText());
-            setTimeout(() => { scanCooldownRef.current = false; }, 1500);
-          });
+          // iOS Safari — @zxing/library canvas decode loop + TRY_HARDER
+          const { MultiFormatReader, BinaryBitmap, HTMLCanvasElementLuminanceSource,
+                  HybridBinarizer, DecodeHintType, BarcodeFormat } = await import('@zxing/library');
+          const hints = new Map();
+          hints.set(DecodeHintType.TRY_HARDER, true);
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+            BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.CODE_93,
+            BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A,
+            BarcodeFormat.UPC_E, BarcodeFormat.ITF, BarcodeFormat.CODABAR,
+            BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX,
+          ]);
+          const reader = new MultiFormatReader();
+          reader.setHints(hints);
+          codeReaderRef.current = { reset: () => { cancelled = true; } };
+          const canvas = document.createElement('canvas');
+          const ctx2d = canvas.getContext('2d', { willReadFrequently: true });
+          const loop = () => {
+            if (cancelled) return;
+            if (video.readyState >= 2 && !scanCooldownRef.current) {
+              try {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx2d.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const src = new HTMLCanvasElementLuminanceSource(canvas);
+                const bmp = new BinaryBitmap(new HybridBinarizer(src));
+                const result = reader.decode(bmp);
+                if (result) {
+                  scanCooldownRef.current = true;
+                  handleScanResultRef.current?.(result.getText());
+                  setTimeout(() => { scanCooldownRef.current = false; }, 1500);
+                }
+              } catch {}
+            }
+            rafIdRef.current = requestAnimationFrame(loop);
+          };
+          rafIdRef.current = requestAnimationFrame(loop);
         }
       } catch (err) {
         if (!cancelled) { console.error('Scanner error:', err); setScanMode(false); }
@@ -217,7 +251,7 @@ export default function StockCount() {
       codeReaderRef.current?.reset?.();
       codeReaderRef.current = null;
     };
-  }, [scanMode, handleScanResult]);
+  }, [scanMode]);
 
   const stopCamera = () => {
     if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
@@ -230,7 +264,7 @@ export default function StockCount() {
     setScanResult(null);
   };
 
-  // ── Barcode Gun (keyboard) ────────────────────────────────────
+  // ── Barcode Gun ───────────────────────────────────────────────
   useEffect(() => {
     if (step !== 'count' || !gunMode) return;
     const onKey = (e) => {
@@ -238,7 +272,6 @@ export default function StockCount() {
       if (e.key === 'Enter') {
         const code = gunBufferRef.current.trim();
         gunBufferRef.current = '';
-        // ใช้ ref เสมอ — ไม่มี stale closure
         if (code) handleScanResultRef.current?.(code);
       } else if (e.key.length === 1) {
         gunBufferRef.current += e.key;
@@ -248,9 +281,9 @@ export default function StockCount() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [step, gunMode]); // ไม่ใส่ handleScanResult — ใช้ ref แทน
+  }, [step, gunMode]);
 
-  // ── Session: โหลดเมื่อเลือก subcategory ──────────────────────
+  // ── Session ───────────────────────────────────────────────────
   const handleSelectCat = (key) => {
     setSelectedCat(key);
     setSelectedSub(null);
@@ -262,20 +295,20 @@ export default function StockCount() {
     setSelectedSub(sub);
     setSearchQ("");
     setStep("count");
+    setIsLocked(false);
     const today = new Date().toISOString().slice(0, 10);
     const key = `scan_${selectedCat}_${sub}_${today}`.replace(/[/\s]/g, '_');
     sessionKeyRef.current = key;
-    fetch(`/api/scan-session/${key}`)
-      .then(r => r.json())
-      .then(data => {
-        const s = new Set(data.serials || []);
-        scannedSerialsRef.current = s;
-        setScannedSerials(new Set(s));
-      })
-      .catch(() => {
-        scannedSerialsRef.current = new Set();
-        setScannedSerials(new Set());
-      });
+    // โหลด session + เช็ค lock พร้อมกัน
+    Promise.all([
+      fetch(`/api/scan-session/${key}`).then(r => r.json()).catch(() => ({ serials: [] })),
+      fetch(`/api/count-lock/${key}`).then(r => r.json()).catch(() => ({ locked: false })),
+    ]).then(([sessionData, lockData]) => {
+      const s = new Set(sessionData.serials || []);
+      scannedSerialsRef.current = s;
+      setScannedSerials(new Set(s));
+      setIsLocked(!!lockData.locked);
+    });
   };
 
   const handleBack = () => {
@@ -286,12 +319,11 @@ export default function StockCount() {
 
   const handleAddManual = (text) => {
     setManualInput('');
-    text.split(/[,\n]/).map(s => s.trim()).filter(Boolean).forEach(handleScanResult);
+    text.split(/[,\n]/).map(s => s.trim()).filter(Boolean).forEach(code => handleScanResultRef.current?.(code));
   };
 
   // ── Save ──────────────────────────────────────────────────────
   const handleSave = async () => {
-    // ไม่บันทึกถ้ายังไม่ได้สแกนเลย
     if (scannedSerialsRef.current.size === 0) return;
     setSaving(true);
     const countByItem = {};
@@ -299,7 +331,6 @@ export default function StockCount() {
       const item = items.find(i => Array.isArray(i.serials) && i.serials.some(sr => sr.toLowerCase() === s));
       if (item) countByItem[item.id] = (countByItem[item.id] || 0) + 1;
     }
-    // บันทึกเฉพาะ item ที่มีการสแกน หรือต้องการ record ว่านับแล้วได้ 0
     for (const item of listItems) {
       addHistoryEntry({
         type: "update",
@@ -312,7 +343,7 @@ export default function StockCount() {
         priceBefore: item.price,
         priceAfter: item.price,
         counter: currentUser?.name || "ไม่ระบุ",
-        note: note || `นับสต๊อก ${selectedCat}`,
+        note: note || `นับสต๊อก ${getCatLabel(selectedCat)}`,
       });
     }
     setSavedCount(listItems.length);
@@ -320,9 +351,12 @@ export default function StockCount() {
     setNote("");
     if (sessionKeyRef.current) {
       fetch(`/api/scan-session/${sessionKeyRef.current}`, { method: 'DELETE' }).catch(() => {});
+      // ล็อค — ป้องกันนับซ้ำจนกว่าจะลบประวัติ
+      fetch(`/api/count-lock/${sessionKeyRef.current}`, { method: 'POST' }).catch(() => {});
     }
     scannedSerialsRef.current = new Set();
     setScannedSerials(new Set());
+    setIsLocked(true);
   };
 
   const handleReset = () => {
@@ -332,11 +366,17 @@ export default function StockCount() {
     scannedSerialsRef.current = new Set();
     setScannedSerials(new Set());
     setSavedCount(0);
+    // สร้าง key ใหม่สำหรับรอบนับใหม่
+    if (selectedCat && selectedSub) {
+      const today = new Date().toISOString().slice(0, 10);
+      const key = `scan_${selectedCat}_${selectedSub}_${today}_r${Date.now()}`.replace(/[/\s]/g, '_');
+      sessionKeyRef.current = key;
+    }
   };
 
   // ── UI ────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full gap-0">
+    <div className="flex flex-col h-full gap-0 relative">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 mb-4 text-sm flex-wrap">
         <ClipboardCheck className="w-5 h-5 text-blue-400 shrink-0" />
@@ -346,9 +386,9 @@ export default function StockCount() {
         </button>
         {selectedCat && (<>
           <ChevronRight className="w-4 h-4 text-slate-600" />
-          <button onClick={() => { stopCamera(); step === "count" && setStep("subcategory"); setSelectedSub(null); }}
+          <button onClick={() => { stopCamera(); if (step === "count") { setStep("subcategory"); setSelectedSub(null); } }}
             className={`font-semibold ${step === "subcategory" ? "text-white" : "text-slate-400 hover:text-white"}`}>
-            {cat?.name || selectedCat}
+            {getCatLabel(selectedCat)}
           </button>
         </>)}
         {selectedSub && (<>
@@ -365,7 +405,10 @@ export default function StockCount() {
         <div className="flex-1 overflow-y-auto">
           <p className="text-slate-400 text-sm mb-4">เลือกหมวดสินค้าที่จะนับสต๊อก</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {(Array.isArray(categories) ? categories : Object.entries(categories).map(([k,v]) => ({ ...v, name: k }))).map((catObj) => {
+            {(Array.isArray(categories)
+              ? categories
+              : Object.entries(categories).map(([k,v]) => ({ ...v, name: k }))
+            ).map((catObj) => {
               const Icon = LucideIcons[catObj.icon] || Package;
               const catItems = items.filter(i => i.category === catObj.name);
               if (catItems.length === 0) return null;
@@ -376,11 +419,7 @@ export default function StockCount() {
                     <Icon className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <p className="font-semibold text-white text-sm">{catObj.label || ({
-                      hardware:'ฮาร์ดแวร์', accessories:'อุปกรณ์เสริม', monitors:'จอมอนิเตอร์',
-                      networking:'อุปกรณ์เครือข่าย', software:'ซอฟต์แวร์', storage:'อุปกรณ์จัดเก็บ',
-                      notebook:'โน้ตบุ๊ก', peripherals:'อุปกรณ์ต่อพ่วง', Printer:'Printer & Ink', misc:'อุปกรณ์อื่นๆ'
-                    })[catObj.name] || catObj.name}</p>
+                    <p className="font-semibold text-white text-sm">{catObj.label || getCatLabel(catObj.name)}</p>
                     <p className="text-xs text-slate-400 mt-0.5">{catItems.length} รายการ</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-blue-400 self-end" />
@@ -420,147 +459,172 @@ export default function StockCount() {
 
       {/* Step 3: นับรายการ */}
       {step === "count" && (
-        <div className="flex flex-col lg:flex-row gap-4 flex-1 overflow-hidden min-h-0">
-          {/* รายการ */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {/* Toolbar */}
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <button onClick={handleBack} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm shrink-0">
-                <ChevronLeft className="w-4 h-4" /> กลับ
-              </button>
-              <div className="relative flex-1 min-w-[140px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
-                  placeholder="ค้นหา..."
-                  className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                {searchQ && (
-                  <button onClick={() => setSearchQ("")} className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <X className="w-3.5 h-3.5 text-slate-500" />
-                  </button>
-                )}
-              </div>
-              <button onClick={() => scanMode ? stopCamera() : startCamera()}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium shrink-0 transition-all ${
-                  scanMode ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
-                {scanMode ? <CameraOff className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
-                <span className="hidden sm:inline">{scanMode ? 'ปิดกล้อง' : 'กล้อง'}</span>
-              </button>
-              <div onClick={() => setGunMode(p => !p)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border shrink-0 cursor-pointer transition-all ${
-                  gunMode ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-700'}`}>
-                <Scan className="w-4 h-4" />
-                <span className="hidden sm:inline">{gunMode ? 'ยิงอยู่' : 'เครื่องยิง'}</span>
-                {gunMode && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-              </div>
-              <span className="text-slate-500 text-sm shrink-0">{filtered.length} รายการ</span>
-            </div>
-
-            {/* Manual input */}
-            <div className="mb-3 bg-slate-800 border border-slate-700 rounded-xl p-3">
-              <p className="text-xs text-slate-400 mb-2">พิมพ์ Serial (คั่นด้วย , หรือ Enter)</p>
-              <textarea value={manualInput} onChange={e => setManualInput(e.target.value)}
-                onKeyDown={e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') handleAddManual(manualInput); }}
-                placeholder="VT0001, VT0002, VT0003..."
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-16 font-mono" />
-              <button onClick={() => handleAddManual(manualInput)}
-                className="mt-2 w-full px-3 py-1.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded-lg text-xs font-medium transition-all">
-                เพิ่มทั้งหมด (Ctrl+Enter)
-              </button>
-            </div>
-
-            {/* Camera */}
-            {scanMode && (
-              <div className="relative mb-3 rounded-2xl overflow-hidden bg-black border border-slate-700">
-                <video ref={videoRef} className="w-full max-h-48 object-cover" playsInline muted />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-48 h-24 border-2 border-blue-400 rounded-lg opacity-70" />
+        <>
+          {/* Locked Overlay */}
+          {isLocked && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm rounded-2xl">
+              <div className="text-center p-8">
+                <div className="w-20 h-20 mx-auto mb-4 bg-emerald-500/20 border-2 border-emerald-500/50 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-400" />
                 </div>
-                {scanResult && (
-                  <div className={`absolute inset-0 flex items-center justify-center ${
-                    scanResult.status==='found' ? 'bg-emerald-500/30' :
-                    scanResult.status==='duplicate' ? 'bg-amber-500/30' : 'bg-red-500/30'}`}>
-                    <div className={`px-4 py-2 rounded-xl font-bold text-sm ${
-                      scanResult.status==='found' ? 'bg-emerald-500 text-white' :
-                      scanResult.status==='duplicate' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'}`}>
-                      {scanResult.status==='found' ? `✓ ${scanResult.item?.name}` :
-                       scanResult.status==='duplicate' ? `⚠ ซ้ำ: ${scanResult.serial}` :
-                       `ไม่พบ: ${scanResult.serial}`}
-                    </div>
-                  </div>
-                )}
-                <div className="absolute bottom-2 left-0 right-0 text-center text-xs text-slate-400">
-                  <Zap className="w-3 h-3 inline mr-1 text-blue-400" />หันกล้องไปที่ barcode
-                </div>
-              </div>
-            )}
-
-            {/* List */}
-            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-              {filtered.length === 0 && (
-                <div className="flex items-center justify-center h-40 text-slate-500">ไม่พบรายการ</div>
-              )}
-              {filtered.map((row, idx) => (
-                <div id={`serial-${row.serialLower}`} key={row.serial}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
-                    scanResult?.serial?.toLowerCase() === row.serialLower
-                      ? scanResult.status==='duplicate' ? 'bg-amber-500/10 border-amber-500/50 ring-1 ring-amber-500/50'
-                        : 'bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/50'
-                      : row.scanned ? 'bg-emerald-500/5 border-emerald-500/20'
-                      : 'bg-slate-800/60 border-slate-700/60'}`}>
-                  <span className="text-slate-600 text-xs w-5 shrink-0 text-right">{idx+1}</span>
-                  <div className="shrink-0">
-                    {row.scanned
-                      ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      : <div className="w-4 h-4 rounded-full border border-slate-600" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-mono text-slate-300 leading-tight">{row.serial}</p>
-                    <p className="text-xs text-slate-500 mt-0.5 truncate">{row.item.name}</p>
-                  </div>
-                  {row.scanned && <span className="text-xs text-emerald-400 font-medium shrink-0">นับแล้ว</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Panel สรุป */}
-          <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3">
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
-                <span className="text-slate-400">หมวด: <span className="text-blue-300 font-medium">{selectedSub}</span></span>
-                <div className="flex gap-3">
-                  <span className="text-slate-400">สแกน: <span className="font-bold text-emerald-400">{scannedCount}</span></span>
-                  <span className="text-slate-400">ทั้งหมด: <span className="font-bold text-white">{totalSerials}</span></span>
-                  <span className="text-slate-400">เหลือ: <span className={`font-bold ${totalSerials-scannedCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>{totalSerials-scannedCount}</span></span>
-                </div>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-1.5">
-                <div className="bg-emerald-500 h-1.5 rounded-full transition-all"
-                  style={{ width: totalSerials > 0 ? `${(scannedCount/totalSerials)*100}%` : '0%' }} />
-              </div>
-              <div className="flex gap-2">
-                <input type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="บันทึก..."
-                  className="flex-1 px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <button onClick={handleSave} disabled={saving || scannedCount === 0}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 rounded-lg font-semibold text-xs transition-all whitespace-nowrap">
-                  {saving ? <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-3 h-3" /> : <Send className="w-3 h-3" />}
-                  บันทึก {scannedCount} ชิ้น
+                <p className="text-white font-bold text-lg mb-1">นับเสร็จแล้ว</p>
+                <p className="text-slate-400 text-sm mb-1">{selectedSub}</p>
+                <p className="text-slate-500 text-xs mb-4">ลบประวัติการนับเพื่อนับใหม่</p>
+                <button onClick={handleBack}
+                  className="flex items-center gap-1.5 mx-auto px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-medium transition-all">
+                  <ChevronLeft className="w-4 h-4" /> กลับ
                 </button>
               </div>
-              <button onClick={handleReset}
-                className="flex items-center justify-center gap-1 text-slate-500 hover:text-white text-xs transition-colors">
-                <RotateCcw className="w-3 h-3" /> รีเซ็ต
-              </button>
             </div>
-            {savedCount > 0 && (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3">
-                <div className="flex items-center gap-2 text-emerald-400 font-medium text-sm">
-                  <CheckCircle2 className="w-4 h-4" />บันทึกแล้ว {savedCount} รายการ
+          )}
+
+          <div className="flex flex-col lg:flex-row gap-4 flex-1 overflow-hidden min-h-0">
+            {/* รายการ */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              {/* Toolbar */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <button onClick={handleBack} className="flex items-center gap-1 text-slate-400 hover:text-white text-sm shrink-0">
+                  <ChevronLeft className="w-4 h-4" /> กลับ
+                </button>
+                <div className="relative flex-1 min-w-[140px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                    placeholder="ค้นหา..."
+                    className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  {searchQ && (
+                    <button onClick={() => setSearchQ("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <X className="w-3.5 h-3.5 text-slate-500" />
+                    </button>
+                  )}
                 </div>
+                <button onClick={() => scanMode ? stopCamera() : startCamera()}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium shrink-0 transition-all ${
+                    scanMode ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
+                  {scanMode ? <CameraOff className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+                  <span className="hidden sm:inline">{scanMode ? 'ปิดกล้อง' : 'กล้อง'}</span>
+                </button>
+                <div onClick={() => setGunMode(p => !p)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border shrink-0 cursor-pointer transition-all ${
+                    gunMode ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-700'}`}>
+                  <Scan className="w-4 h-4" />
+                  <span className="hidden sm:inline">{gunMode ? 'ยิงอยู่' : 'เครื่องยิง'}</span>
+                  {gunMode && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                </div>
+                <span className="text-slate-500 text-sm shrink-0">{filtered.length} รายการ</span>
               </div>
-            )}
+
+              {/* Manual input — compact collapsible */}
+              <details className="mb-3 group">
+                <summary className="flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-400 cursor-pointer hover:text-white list-none">
+                  <span className="flex-1">พิมพ์ Serial (คั่นด้วย , หรือ Enter)</span>
+                  <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2 flex gap-2">
+                  <textarea value={manualInput} onChange={e => setManualInput(e.target.value)}
+                    onKeyDown={e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') handleAddManual(manualInput); }}
+                    placeholder="VT0001, VT0002..."
+                    className="flex-1 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none h-10 font-mono" />
+                  <button onClick={() => handleAddManual(manualInput)}
+                    className="px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded-lg text-xs font-medium transition-all whitespace-nowrap self-end">
+                    เพิ่ม
+                  </button>
+                </div>
+              </details>
+
+              {/* Camera */}
+              {scanMode && (
+                <div className="relative mb-3 rounded-2xl overflow-hidden bg-black border border-slate-700">
+                  <video ref={videoRef} className="w-full max-h-48 object-cover" playsInline muted />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-48 h-24 border-2 border-blue-400 rounded-lg opacity-70" />
+                  </div>
+                  {scanResult && (
+                    <div className={`absolute inset-0 flex items-center justify-center ${
+                      scanResult.status==='found' ? 'bg-emerald-500/30' :
+                      scanResult.status==='duplicate' ? 'bg-amber-500/30' : 'bg-red-500/30'}`}>
+                      <div className={`px-4 py-2 rounded-xl font-bold text-sm ${
+                        scanResult.status==='found' ? 'bg-emerald-500 text-white' :
+                        scanResult.status==='duplicate' ? 'bg-amber-500 text-white' : 'bg-red-500 text-white'}`}>
+                        {scanResult.status==='found' ? `✓ ${scanResult.item?.name}` :
+                         scanResult.status==='duplicate' ? `⚠ ซ้ำ: ${scanResult.serial}` :
+                         `ไม่พบ: ${scanResult.serial}`}
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute bottom-2 left-0 right-0 text-center text-xs text-slate-400">
+                    <Zap className="w-3 h-3 inline mr-1 text-blue-400" />หันกล้องไปที่ barcode
+                  </div>
+                </div>
+              )}
+
+              {/* List */}
+              <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                {filtered.length === 0 && (
+                  <div className="flex items-center justify-center h-40 text-slate-500">ไม่พบรายการ</div>
+                )}
+                {filtered.map((row, idx) => (
+                  <div id={`serial-${row.serialLower}`} key={row.serial}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
+                      scanResult?.serial?.toLowerCase() === row.serialLower
+                        ? scanResult.status==='duplicate' ? 'bg-amber-500/10 border-amber-500/50 ring-1 ring-amber-500/50'
+                          : 'bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/50'
+                        : row.scanned ? 'bg-emerald-500/5 border-emerald-500/20'
+                        : 'bg-slate-800/60 border-slate-700/60'}`}>
+                    <span className="text-slate-600 text-xs w-5 shrink-0 text-right">{idx+1}</span>
+                    <div className="shrink-0">
+                      {row.scanned
+                        ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        : <div className="w-4 h-4 rounded-full border border-slate-600" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-mono text-slate-300 leading-tight">{row.serial}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">{row.item.name}</p>
+                    </div>
+                    {row.scanned && <span className="text-xs text-emerald-400 font-medium shrink-0">นับแล้ว</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Panel สรุป */}
+            <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3">
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
+                  <span className="text-slate-400">หมวด: <span className="text-blue-300 font-medium">{selectedSub}</span></span>
+                  <div className="flex gap-3">
+                    <span className="text-slate-400">สแกน: <span className="font-bold text-emerald-400">{scannedCount}</span></span>
+                    <span className="text-slate-400">ทั้งหมด: <span className="font-bold text-white">{totalSerials}</span></span>
+                    <span className="text-slate-400">เหลือ: <span className={`font-bold ${totalSerials-scannedCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>{totalSerials-scannedCount}</span></span>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-700 rounded-full h-1.5">
+                  <div className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                    style={{ width: totalSerials > 0 ? `${(scannedCount/totalSerials)*100}%` : '0%' }} />
+                </div>
+                <div className="flex gap-2">
+                  <input type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="บันทึก..."
+                    className="flex-1 px-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <button onClick={handleSave} disabled={saving || scannedCount === 0}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 rounded-lg font-semibold text-xs transition-all whitespace-nowrap">
+                    {saving ? <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-3 h-3" /> : <Send className="w-3 h-3" />}
+                    บันทึก {scannedCount} ชิ้น
+                  </button>
+                </div>
+                <button onClick={handleReset}
+                  className="flex items-center justify-center gap-1 text-slate-500 hover:text-white text-xs transition-colors">
+                  <RotateCcw className="w-3 h-3" /> รีเซ็ต
+                </button>
+              </div>
+              {savedCount > 0 && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3">
+                  <div className="flex items-center gap-2 text-emerald-400 font-medium text-sm">
+                    <CheckCircle2 className="w-4 h-4" />บันทึกแล้ว {savedCount} รายการ
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
