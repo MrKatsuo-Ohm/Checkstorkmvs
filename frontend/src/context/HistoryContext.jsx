@@ -40,7 +40,11 @@ export function HistoryProvider({ children }) {
   const clearHistory = useCallback(async () => {
     setHistory([])
     try {
-      await fetch('/api/history', { method: 'DELETE' })
+      // ลบประวัติ + ปลดล็อคทุก subcategory ให้นับใหม่ได้
+      await Promise.all([
+        fetch('/api/history', { method: 'DELETE' }),
+        fetch('/api/count-lock/all', { method: 'DELETE' }),
+      ])
     } catch (err) {
       console.error('Failed to clear history:', err)
     }

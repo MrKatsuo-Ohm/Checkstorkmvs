@@ -28,6 +28,7 @@ export default function StockCount() {
   const [gunMode, setGunMode]         = useState(false);
   const [scanResult, setScanResult]   = useState(null);
   const [scanFlash, setScanFlash]     = useState(false);
+  const [isLocked, setIsLocked]       = useState(false); // ล็อคเมื่อนับเสร็จแล้ว
 
   // ── Refs ─────────────────────────────────────────────────────
   const videoRef          = useRef(null);
@@ -259,17 +260,17 @@ export default function StockCount() {
     const today = new Date().toISOString().slice(0, 10);
     const key = `scan_${selectedCat}_${sub}_${today}`.replace(/[/\s]/g, '_');
     sessionKeyRef.current = key;
-    fetch(`/api/scan-session/${key}`)
-      .then(r => r.json())
-      .then(data => {
-        const s = new Set(data.serials || []);
-        scannedSerialsRef.current = s;
-        setScannedSerials(new Set(s));
-      })
-      .catch(() => {
-        scannedSerialsRef.current = new Set();
-        setScannedSerials(new Set());
-      });
+
+    // เช็ค lock ก่อน แล้วค่อยโหลด serials
+    Promise.all([
+      fetch(`/api/scan-session/${key}`).then(r => r.json()).catch(() => ({ serials: [] })),
+      fetch(`/api/count-lock/${key}`).then(r => r.json()).catch(() => ({ locked: false })),
+    ]).then(([sessionData, lockData]) => {
+      const s = new Set(sessionData.serials || []);
+      scannedSerialsRef.current = s;
+      setScannedSerials(new Set(s));
+      setIsLocked(!!lockData.locked);
+    });
   };
 
   const handleBack = () => {
@@ -314,6 +315,11 @@ export default function StockCount() {
     }
     scannedSerialsRef.current = new Set();
     setScannedSerials(new Set());
+    // ล็อค subcategory นี้ ห้ามนับซ้ำจนกว่าจะลบประวัติ
+    if (sessionKeyRef.current) {
+      fetch(`/api/count-lock/${sessionKeyRef.current}`, { method: 'POST' }).catch(() => {});
+    }
+    setIsLocked(true);
   };
 
   const handleReset = () => {
@@ -327,7 +333,7 @@ export default function StockCount() {
 
   // ── UI ────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full gap-0">
+    <div className="flex flex-col h-full gap-0 relative">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 mb-4 text-sm flex-wrap">
         <ClipboardCheck className="w-5 h-5 text-blue-400 shrink-0" />
@@ -407,6 +413,20 @@ export default function StockCount() {
 
       {/* Step 3: นับรายการ */}
       {step === "count" && (
+        <>
+        {/* ── Locked Overlay ── */}
+        {isLocked && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm rounded-2xl">
+            <div className="text-center p-8">
+              <div className="w-20 h-20 mx-auto mb-4 bg-emerald-500/20 border-2 border-emerald-500/50 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+              </div>
+              <p className="text-white font-bold text-lg mb-1">นับเสร็จแล้ว</p>
+              <p className="text-slate-400 text-sm mb-1">{selectedSub}</p>
+              <p className="text-slate-500 text-xs">ลบประวัติการนับเพื่อนับใหม่</p>
+            </div>
+          </div>
+        )}
         <div className="flex flex-col lg:flex-row gap-4 flex-1 overflow-hidden min-h-0">
           {/* รายการ */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -548,6 +568,7 @@ export default function StockCount() {
             )}
           </div>
         </div>
+      </>
       )}
     </div>
   );
