@@ -64,13 +64,9 @@ export default function StockCount() {
       serial,
       serialLower: serial.toLowerCase(),
       item,
-      scanned: scannedSerialsRef.current.has(serial.toLowerCase()),
+      scanned: scannedSerials.has(serial.toLowerCase()),
     }))
-  ).sort((a, b) => {
-    // ยังไม่นับขึ้นบน นับแล้วลงล่าง
-    if (a.scanned === b.scanned) return 0;
-    return a.scanned ? 1 : -1;
-  });
+  );
 
   const filtered = searchQ.trim()
     ? serialRows.filter(r =>
@@ -197,24 +193,46 @@ export default function StockCount() {
           };
           rafIdRef.current = requestAnimationFrame(loop);
         } else {
-          // ZXing fallback (iOS Safari) — ใช้ decodeFromVideoDevice ที่ work บน iOS
-          const { BrowserMultiFormatReader } = await import('@zxing/browser');
+          // iOS Safari — ใช้ canvas decode loop + TRY_HARDER
+          const { MultiFormatReader, BinaryBitmap, HTMLCanvasElementLuminanceSource,
+                  HybridBinarizer, DecodeHintType, BarcodeFormat } = await import('@zxing/library');
+
           const hints = new Map();
-          // ไม่จำกัด format ให้ ZXing ลอง decode ทุก format
-          const reader = new BrowserMultiFormatReader(hints, {
-            delayBetweenScanAttempts: 300,
-            delayBetweenScanSuccess: 1500,
-          });
-          codeReaderRef.current = reader;
-          // decodeFromVideoDevice(deviceId=undefined ใช้กล้องหลัง, videoElement)
-          reader.decodeFromVideoDevice(undefined, video, (result, err) => {
-            if (cancelled || scanCooldownRef.current) return;
-            if (result) {
-              scanCooldownRef.current = true;
-              handleScanResultRef.current?.(result.getText());
-              setTimeout(() => { scanCooldownRef.current = false; }, 1500);
+          hints.set(DecodeHintType.TRY_HARDER, true);
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+            BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.CODE_93,
+            BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A,
+            BarcodeFormat.UPC_E, BarcodeFormat.ITF, BarcodeFormat.CODABAR,
+            BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX,
+          ]);
+          const reader = new MultiFormatReader();
+          reader.setHints(hints);
+          codeReaderRef.current = { reset: () => { cancelled = true; } };
+
+          // canvas สำหรับ decode
+          const canvas = document.createElement('canvas');
+          const ctx2d = canvas.getContext('2d', { willReadFrequently: true });
+
+          const loop = () => {
+            if (cancelled) return;
+            if (video.readyState >= 2 && !scanCooldownRef.current) {
+              try {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx2d.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const src = new HTMLCanvasElementLuminanceSource(canvas);
+                const bmp = new BinaryBitmap(new HybridBinarizer(src));
+                const result = reader.decode(bmp);
+                if (result) {
+                  scanCooldownRef.current = true;
+                  handleScanResultRef.current?.(result.getText());
+                  setTimeout(() => { scanCooldownRef.current = false; }, 1500);
+                }
+              } catch {}
             }
-          });
+            rafIdRef.current = requestAnimationFrame(loop);
+          };
+          rafIdRef.current = requestAnimationFrame(loop);
         }
       } catch (err) {
         if (!cancelled) { console.error('Scanner error:', err); setScanMode(false); }
@@ -388,11 +406,7 @@ export default function StockCount() {
                     <Icon className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <p className="font-semibold text-white text-sm">{catObj.label || {
-                      hardware:'ฮาร์ดแวร์', accessories:'อุปกรณ์เสริม', monitors:'จอมอนิเตอร์',
-                      networking:'อุปกรณ์เครือข่าย', software:'ซอฟต์แวร์', storage:'อุปกรณ์จัดเก็บ',
-                      notebook:'โน้ตบุ๊ก', peripherals:'อุปกรณ์ต่อพ่วง', Printer:'Printer & Ink', misc:'อุปกรณ์อื่นๆ'
-                    }[catObj.name] || catObj.name}</p>
+                    <p className="font-semibold text-white text-sm">{catObj.label || catObj.name}</p>
                     <p className="text-xs text-slate-400 mt-0.5">{catItems.length} รายการ</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-blue-400 self-end" />
