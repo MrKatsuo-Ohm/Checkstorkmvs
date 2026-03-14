@@ -28,7 +28,6 @@ export default function StockCount() {
   const [gunMode, setGunMode]         = useState(false);
   const [scanResult, setScanResult]   = useState(null);
   const [scanFlash, setScanFlash]     = useState(false);
-  const [isLocked, setIsLocked]       = useState(false);
 
   // ── Refs ─────────────────────────────────────────────────────
   const videoRef          = useRef(null);
@@ -79,24 +78,47 @@ export default function StockCount() {
   const totalSerials = serialRows.length;
   const scannedCount = scannedSerialsRef.current.size;
 
-  // ── เสียง beep ────────────────────────────────────────────────
+  // ── เสียง beep (เลียนแบบเครื่องสแกน) ──────────────────────────
   const beep = useCallback((type = 'found') => {
     try {
       if (!audioCtxRef.current)
         audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
       const ctx = audioCtxRef.current;
-      const play = (freq, dur, oscType = 'sine', delay = 0) => {
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.type = oscType; o.frequency.value = freq;
-        g.gain.setValueAtTime(0.4, ctx.currentTime + delay);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
-        o.start(ctx.currentTime + delay);
-        o.stop(ctx.currentTime + delay + dur);
+
+      const playTone = (freq, startTime, duration, vol = 0.6) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        // filter ทำให้เสียงกลมขึ้น เหมือนลำโพงเล็กๆ
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = freq;
+        filter.Q.value = 1.5;
+        o.connect(filter); filter.connect(g); g.connect(ctx.destination);
+        o.type = 'square'; // square wave เหมือนบัซเซอร์จริง
+        o.frequency.value = freq;
+        // envelope: attack เร็ว decay นุ่ม
+        g.gain.setValueAtTime(0, startTime);
+        g.gain.linearRampToValueAtTime(vol, startTime + 0.005);
+        g.gain.setValueAtTime(vol, startTime + duration - 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        o.start(startTime);
+        o.stop(startTime + duration);
       };
-      if (type === 'found')          { play(1200, 0.12); play(1500, 0.12, 'sine', 0.15); }
-      else if (type === 'duplicate') { play(700, 0.35, 'square'); }
-      else                           { play(300, 0.5, 'sawtooth'); }
+
+      const t = ctx.currentTime;
+      if (type === 'found') {
+        // เสียงปี๊บสั้นๆ เดียว — เหมือน Honeywell/Zebra scanner
+        playTone(3800, t, 0.08, 0.5);
+      } else if (type === 'duplicate') {
+        // สองเสียงต่ำลงมา — เตือนซ้ำ
+        playTone(2400, t, 0.06, 0.4);
+        playTone(1800, t + 0.1, 0.08, 0.4);
+      } else {
+        // สามเสียงต่ำ — error
+        playTone(1200, t, 0.06, 0.5);
+        playTone(1000, t + 0.09, 0.06, 0.5);
+        playTone(800,  t + 0.18, 0.12, 0.5);
+      }
     } catch {}
   }, []);
 
@@ -257,19 +279,20 @@ export default function StockCount() {
     setSelectedSub(sub);
     setSearchQ("");
     setStep("count");
-    setIsLocked(false);
     const today = new Date().toISOString().slice(0, 10);
     const key = `scan_${selectedCat}_${sub}_${today}`.replace(/[/\s]/g, '_');
     sessionKeyRef.current = key;
-    Promise.all([
-      fetch(`/api/scan-session/${key}`).then(r => r.json()).catch(() => ({ serials: [] })),
-      fetch(`/api/count-lock/${key}`).then(r => r.json()).catch(() => ({ locked: false })),
-    ]).then(([sessionData, lockData]) => {
-      const s = new Set(sessionData.serials || []);
-      scannedSerialsRef.current = s;
-      setScannedSerials(new Set(s));
-      setIsLocked(!!lockData.locked);
-    });
+    fetch(`/api/scan-session/${key}`)
+      .then(r => r.json())
+      .then(data => {
+        const s = new Set(data.serials || []);
+        scannedSerialsRef.current = s;
+        setScannedSerials(new Set(s));
+      })
+      .catch(() => {
+        scannedSerialsRef.current = new Set();
+        setScannedSerials(new Set());
+      });
   };
 
   const handleBack = () => {
@@ -317,10 +340,6 @@ export default function StockCount() {
     }
     scannedSerialsRef.current = new Set();
     setScannedSerials(new Set());
-    if (sessionKeyRef.current) {
-      fetch(`/api/count-lock/${sessionKeyRef.current}`, { method: 'POST' }).catch(() => {});
-    }
-    setIsLocked(true);
   };
 
   const handleReset = () => {
@@ -334,7 +353,7 @@ export default function StockCount() {
 
   // ── UI ────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full gap-0 relative">
+    <div className="flex flex-col h-full gap-0">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 mb-4 text-sm flex-wrap">
         <ClipboardCheck className="w-5 h-5 text-blue-400 shrink-0" />
@@ -414,23 +433,6 @@ export default function StockCount() {
 
       {/* Step 3: นับรายการ */}
       {step === "count" && (
-        <>
-        {isLocked && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm rounded-2xl">
-            <div className="text-center p-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-emerald-500/20 border-2 border-emerald-500/50 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="w-10 h-10 text-emerald-400" />
-              </div>
-              <p className="text-white font-bold text-lg mb-1">นับเสร็จแล้ว</p>
-              <p className="text-slate-400 text-sm mb-1">{selectedSub}</p>
-              <p className="text-slate-500 text-xs mb-4">ลบประวัติการนับเพื่อนับใหม่</p>
-              <button onClick={handleBack}
-                className="flex items-center gap-1.5 mx-auto px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-medium transition-all">
-                <ChevronLeft className="w-4 h-4" /> กลับ
-              </button>
-            </div>
-          </div>
-        )}
         <div className="flex flex-col lg:flex-row gap-4 flex-1 overflow-hidden min-h-0">
           {/* รายการ */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -466,23 +468,18 @@ export default function StockCount() {
               <span className="text-slate-500 text-sm shrink-0">{filtered.length} รายการ</span>
             </div>
 
-            {/* Manual input — compact, collapsible */}
-            <details className="mb-3 group">
-              <summary className="flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-400 cursor-pointer hover:text-white list-none">
-                <span className="flex-1">พิมพ์ Serial (คั่นด้วย , หรือ Enter)</span>
-                <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
-              </summary>
-              <div className="mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2 flex gap-2">
-                <textarea value={manualInput} onChange={e => setManualInput(e.target.value)}
-                  onKeyDown={e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') handleAddManual(manualInput); }}
-                  placeholder="VT0001, VT0002..."
-                  className="flex-1 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none h-10 font-mono" />
-                <button onClick={() => handleAddManual(manualInput)}
-                  className="px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded-lg text-xs font-medium transition-all whitespace-nowrap self-end">
-                  เพิ่ม
-                </button>
-              </div>
-            </details>
+            {/* Manual input */}
+            <div className="mb-3 bg-slate-800 border border-slate-700 rounded-xl p-3">
+              <p className="text-xs text-slate-400 mb-2">พิมพ์ Serial (คั่นด้วย , หรือ Enter)</p>
+              <textarea value={manualInput} onChange={e => setManualInput(e.target.value)}
+                onKeyDown={e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') handleAddManual(manualInput); }}
+                placeholder="VT0001, VT0002, VT0003..."
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-16 font-mono" />
+              <button onClick={() => handleAddManual(manualInput)}
+                className="mt-2 w-full px-3 py-1.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded-lg text-xs font-medium transition-all">
+                เพิ่มทั้งหมด (Ctrl+Enter)
+              </button>
+            </div>
 
             {/* Camera */}
             {scanMode && (
@@ -577,7 +574,6 @@ export default function StockCount() {
             )}
           </div>
         </div>
-        </>
       )}
     </div>
   );
