@@ -89,35 +89,28 @@ app.delete('/api/history', (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Count Lock (ล็อคหลัง save ป้องกันนับซ้ำ) ─────────────────────────────────
+// ── Count Lock ───────────────────────────────────────────────────────────────
 const LOCK_FILE = path.join(__dirname, 'count_locks.json');
 let countLocks = new Set();
 try {
   if (fs.existsSync(LOCK_FILE)) {
-    const arr = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8'));
-    countLocks = new Set(arr);
+    countLocks = new Set(JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8')));
   }
 } catch (e) { console.warn('Could not load count locks:', e.message); }
 
 const saveLocks = () => {
-  try {
-    fs.writeFileSync(LOCK_FILE, JSON.stringify(Array.from(countLocks)), 'utf8');
-  } catch (e) { console.warn('Could not save count locks:', e.message); }
+  try { fs.writeFileSync(LOCK_FILE, JSON.stringify(Array.from(countLocks)), 'utf8'); }
+  catch (e) { console.warn('Could not save count locks:', e.message); }
 };
 
-// GET /api/count-lock/:key — เช็คว่า locked ไหม
 app.get('/api/count-lock/:key', (req, res) => {
   res.json({ locked: countLocks.has(req.params.key) });
 });
-
-// POST /api/count-lock/:key — ล็อค
 app.post('/api/count-lock/:key', (req, res) => {
   countLocks.add(req.params.key);
   saveLocks();
   res.json({ ok: true });
 });
-
-// DELETE /api/count-lock/all — ล็อคทั้งหมด (เรียกตอนลบประวัติ)
 app.delete('/api/count-lock/all', (req, res) => {
   countLocks.clear();
   saveLocks();
