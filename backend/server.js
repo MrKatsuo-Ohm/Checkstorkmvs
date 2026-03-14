@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const stockRoutes = require('./routes/stock');
 
 const app = express();
@@ -12,28 +13,79 @@ app.use(express.json());
 // API Routes
 app.use('/api/stock', stockRoutes);
 
-// ── Scan Session (in-memory, shared ข้ามเครื่อง) ─────────────────────────────
-// key → Set of serial strings
-const scanSessions = {};
+// ── Scan Session (เก็บลงไฟล์) ────────────────────────────────────────────────
+const SESSION_FILE = path.join(__dirname, 'scan_sessions.json');
+let scanSessions = {};
+try {
+  if (fs.existsSync(SESSION_FILE)) {
+    const parsed = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+    for (const [k, v] of Object.entries(parsed)) {
+      scanSessions[k] = new Set(v);
+    }
+  }
+} catch (e) { console.warn('Could not load scan sessions:', e.message); }
 
-// GET  /api/scan-session/:key  — ดึง serials ที่สแกนแล้ว
+const saveSessions = () => {
+  try {
+    const obj = {};
+    for (const [k, v] of Object.entries(scanSessions)) obj[k] = Array.from(v);
+    fs.writeFileSync(SESSION_FILE, JSON.stringify(obj, null, 2), 'utf8');
+  } catch (e) { console.warn('Could not save scan sessions:', e.message); }
+};
+
 app.get('/api/scan-session/:key', (req, res) => {
-  const serials = Array.from(scanSessions[req.params.key] || []);
-  res.json({ serials });
+  res.json({ serials: Array.from(scanSessions[req.params.key] || []) });
 });
-
-// POST /api/scan-session/:key  — เพิ่ม serial เข้า session
 app.post('/api/scan-session/:key', (req, res) => {
   const { serial } = req.body;
   if (!serial) return res.status(400).json({ error: 'serial required' });
   if (!scanSessions[req.params.key]) scanSessions[req.params.key] = new Set();
   scanSessions[req.params.key].add(serial.toLowerCase());
+  saveSessions();
   res.json({ ok: true, count: scanSessions[req.params.key].size });
 });
-
-// DELETE /api/scan-session/:key — ล้าง session (หลัง save)
 app.delete('/api/scan-session/:key', (req, res) => {
   delete scanSessions[req.params.key];
+  saveSessions();
+  res.json({ ok: true });
+});
+
+// ── History (เก็บลงไฟล์) ──────────────────────────────────────────────────────
+const HISTORY_FILE = path.join(__dirname, 'history.json');
+let historyData = [];
+try {
+  if (fs.existsSync(HISTORY_FILE)) {
+    historyData = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+  }
+} catch (e) { console.warn('Could not load history:', e.message); }
+
+const saveHistory = () => {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(historyData, null, 2), 'utf8');
+  } catch (e) { console.warn('Could not save history:', e.message); }
+};
+
+// GET  /api/history — ดึงประวัติทั้งหมด
+app.get('/api/history', (req, res) => {
+  res.json(historyData);
+});
+
+// POST /api/history — เพิ่มรายการประวัติ
+app.post('/api/history', (req, res) => {
+  const entry = req.body;
+  if (!entry || !entry.id) return res.status(400).json({ error: 'invalid entry' });
+  // ป้องกัน duplicate id
+  if (!historyData.find(h => h.id === entry.id)) {
+    historyData.unshift(entry); // ใหม่สุดอยู่หัว
+    saveHistory();
+  }
+  res.json({ ok: true });
+});
+
+// DELETE /api/history — ล้างประวัติทั้งหมด
+app.delete('/api/history', (req, res) => {
+  historyData = [];
+  saveHistory();
   res.json({ ok: true });
 });
 

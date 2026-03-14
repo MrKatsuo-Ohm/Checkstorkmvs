@@ -26,9 +26,11 @@ export default function StockCount() {
   const { currentUser } = useUser();
   const { addHistoryEntry } = useHistory();
 
-  const [step, setStep] = useState("category");
-  const [selectedCat, setSelectedCat] = useState(null);
-  const [selectedSub, setSelectedSub] = useState(null);
+  // ── restore state จาก sessionStorage เมื่อ refresh ───────────
+  const _ss = (() => { try { return JSON.parse(sessionStorage.getItem('stockcount_state') || '{}') } catch { return {} } })()
+  const [step, setStep] = useState(_ss.step || "category");
+  const [selectedCat, setSelectedCat] = useState(_ss.selectedCat || null);
+  const [selectedSub, setSelectedSub] = useState(_ss.selectedSub || null);
   // scannedSerials: Set of serial strings ที่สแกนแล้ว
   const [scannedSerials, setScannedSerials] = useState(new Set());
   const [note, setNote] = useState("");
@@ -53,6 +55,30 @@ export default function StockCount() {
   const sessionKeyRef = useRef(null)
   const syncTimerRef = useRef(null)
   const audioCtxRef = useRef(null)
+
+  // ── save state ลง sessionStorage ทุกครั้งที่เปลี่ยน ──────────
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('stockcount_state', JSON.stringify({ step, selectedCat, selectedSub }))
+    } catch {}
+  }, [step, selectedCat, selectedSub])
+
+  // ── restore scannedSerials จาก API เมื่อ refresh กลับมาหน้า count ──
+  useEffect(() => {
+    if (step === 'count' && selectedCat && selectedSub) {
+      const today = new Date().toISOString().slice(0, 10)
+      const key = `scan_${selectedCat}_${selectedSub}_${today}`
+      sessionKeyRef.current = key
+      fetch(`/api/scan-session/${key}`)
+        .then(res => res.json())
+        .then(data => {
+          const set = new Set(data.serials || [])
+          setScannedSerials(set)
+          scannedSerialsRef.current = set
+        })
+        .catch(err => console.error('Failed to restore session:', err))
+    }
+  }, []) // รันครั้งเดียวตอน mount เท่านั้น
 
   // Barcode gun: รับ input keyboard เร็วๆ (เฉพาะตอน gunMode เปิด)
   useEffect(() => {
@@ -175,55 +201,6 @@ export default function StockCount() {
     setScanResult(null)
   }
 
-  // ── เสียง beep ─────────────────────────────────────────────
-  const beep = useCallback((type = 'found') => {
-    try {
-      if (!audioCtxRef.current)
-        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
-      const ctx = audioCtxRef.current
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-
-      if (type === 'found') {
-        // เสียงสูง สั้น 2 ครั้ง = ถูก ✓
-        osc.frequency.value = 1200
-        gain.gain.setValueAtTime(0.4, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
-        osc.start(ctx.currentTime)
-        osc.stop(ctx.currentTime + 0.12)
-        // ครั้งที่ 2
-        const osc2 = ctx.createOscillator()
-        const gain2 = ctx.createGain()
-        osc2.connect(gain2); gain2.connect(ctx.destination)
-        osc2.frequency.value = 1500
-        gain2.gain.setValueAtTime(0.4, ctx.currentTime + 0.15)
-        gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28)
-        osc2.start(ctx.currentTime + 0.15)
-        osc2.stop(ctx.currentTime + 0.28)
-      } else if (type === 'duplicate') {
-        // เสียงกลาง ยาว = ซ้ำ ⚠
-        osc.frequency.value = 700
-        osc.type = 'square'
-        gain.gain.setValueAtTime(0.3, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
-        osc.start(ctx.currentTime)
-        osc.stop(ctx.currentTime + 0.35)
-      } else {
-        // เสียงต่ำ ยาว = ผิด ✗
-        osc.frequency.value = 300
-        osc.type = 'sawtooth'
-        gain.gain.setValueAtTime(0.4, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
-        osc.start(ctx.currentTime)
-        osc.stop(ctx.currentTime + 0.5)
-      }
-    } catch (e) {
-      console.warn('beep error:', e)
-    }
-  }, [])
-
   const handleScanResult = useCallback((code) => {
     const codeLower = code.toLowerCase()
 
@@ -232,7 +209,6 @@ export default function StockCount() {
       const item = items.find(i =>
         Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower)
       )
-      beep('duplicate')
       setScanResult({ serial: code, item, status: 'duplicate' })
       setTimeout(() => { setScanResult(null) }, 1500)
       return
@@ -259,7 +235,6 @@ export default function StockCount() {
         }).catch(err => console.error('Failed to sync:', err))
       }
 
-      beep('found')
       setScanResult({ serial: code, item: found, status: 'found' })
       setScanFlash(true)
       setTimeout(() => setScanFlash(false), 600)
@@ -267,14 +242,13 @@ export default function StockCount() {
         document.getElementById(`serial-${codeLower}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }, 200)
     } else {
-      beep('notfound')
       setScanResult({ serial: code, item: null, status: 'notfound' })
     }
 
     setTimeout(() => {
       setScanResult(null)
     }, 1500)
-  }, [items, beep])
+  }, [items])
 
   // สร้าง flat list ของ serials ในหมวดที่เลือก
   // แต่ละ row = { serial, item, scanned }
@@ -318,8 +292,9 @@ export default function StockCount() {
     setSearchQ("");
     setStep("count");
     
-    // สร้าง session key และดึงข้อมูลจาก API
-    const key = `scan_${selectedCat}_${sub}`;
+    // session key มีวันที่ — ป้องกันข้อมูลเก่าข้ามวัน
+    const today = new Date().toISOString().slice(0, 10)
+    const key = `scan_${selectedCat}_${sub}_${today}`;
     sessionKeyRef.current = key;
     
     // โหลดข้อมูลจาก API
@@ -399,9 +374,10 @@ export default function StockCount() {
         .catch(err => console.error('Failed to clear session:', err))
     }
     
-    // reset
+    // reset + clear sessionStorage
     setScannedSerials(new Set());
     scannedSerialsRef.current = new Set();
+    try { sessionStorage.removeItem('stockcount_state') } catch {}
   };
 
   const cat = selectedCat ? categories[selectedCat] : null;
