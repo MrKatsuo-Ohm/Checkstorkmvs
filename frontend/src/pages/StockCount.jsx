@@ -120,12 +120,13 @@ export default function StockCount() {
     const codeLower = code.toLowerCase();
     if (scannedSerialsRef.current.has(codeLower)) {
       beep('duplicate');
-      const item = items.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
+      const item = listItems.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
       setScanResult({ serial: code, item, status: 'duplicate' });
       setTimeout(() => setScanResult(null), 1500);
       return;
     }
-    const found = items.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
+    // ค้นหาเฉพาะใน subcategory ที่เลือกอยู่เท่านั้น
+    const found = listItems.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
     if (found) {
       beep('found');
       scannedSerialsRef.current = new Set(scannedSerialsRef.current);
@@ -149,7 +150,7 @@ export default function StockCount() {
       setScanResult({ serial: code, item: null, status: 'notfound' });
     }
     setTimeout(() => setScanResult(null), 1500);
-  }, [items, beep]);
+  }, [items, listItems, beep]);
 
   // อัปเดต ref ให้ camera/gun ใช้ version ล่าสุดเสมอ
   useEffect(() => { handleScanResultRef.current = handleScanResult; }, [handleScanResult]);
@@ -264,30 +265,42 @@ export default function StockCount() {
     setScanResult(null);
   };
 
-  // ── Browser back button support ─────────────────────────────
+  // ── Browser back button: push state ทุกครั้งที่ step เปลี่ยน ──
   useEffect(() => {
-    // push state ทุกครั้งที่ step เปลี่ยน
-    const state = { countStep: step, cat: selectedCat, sub: selectedSub }
-    window.history.pushState(state, '', window.location.href)
-  }, [step])
+    // ใช้ replaceState ไม่ใช่ pushState เพื่อไม่ให้ซ้อนกับ App.jsx
+    // App.jsx จะ push #count ไว้แล้ว เราแค่แนบ step ไว้กับ state
+    const cur = window.history.state || {}
+    window.history.replaceState({ ...cur, countStep: step, countCat: selectedCat, countSub: selectedSub }, '')
+  }, [step, selectedCat, selectedSub])
 
   useEffect(() => {
     const onPop = (e) => {
       const s = e.state
-      // ถ้ากดกลับขณะอยู่ใน StockCount → ย้อน step
-      if (s?.countStep) {
-        if (s.countStep === 'count') {
+      if (!s) return
+      // อยู่ในหน้า count อยู่
+      if (s.view === 'count') {
+        if (step === 'count') {
+          // count → กลับ subcategory
+          e.stopImmediatePropagation?.()
           stopCamera()
           setStep('subcategory')
           setSelectedSub(null)
-          // push state กลับเพื่อไม่ให้ browser ออกจากหน้า
-          window.history.pushState({ countStep: 'subcategory', cat: s.cat }, '', window.location.href)
-        } else if (s.countStep === 'subcategory') {
+          // push state ใหม่ให้ browser รู้ว่ายังอยู่หน้า count
+          window.history.pushState(
+            { view: 'count', countStep: 'subcategory', countCat: selectedCat },
+            '', '#count'
+          )
+        } else if (step === 'subcategory') {
+          // subcategory → กลับ category
+          e.stopImmediatePropagation?.()
           setStep('category')
           setSelectedCat(null)
-          window.history.pushState({ countStep: 'category' }, '', window.location.href)
+          window.history.pushState(
+            { view: 'count', countStep: 'category' },
+            '', '#count'
+          )
         }
-        // ถ้า countStep === 'category' → ปล่อยให้ App.jsx จัดการ (กลับหน้าหลัก)
+        // step === 'category' → ปล่อยให้ App.jsx จัดการ (กลับหน้าก่อน)
       }
     }
     window.addEventListener('popstate', onPop)
@@ -349,7 +362,20 @@ export default function StockCount() {
 
   const handleAddManual = (text) => {
     setManualInput('');
-    text.split(/[,\n]/).map(s => s.trim()).filter(Boolean).forEach(code => handleScanResultRef.current?.(code));
+    text.split(/[,\n]/).map(s => s.trim()).filter(Boolean).forEach(input => {
+      // ถ้า input สั้น (≤ 6 ตัว) → ลอง match 4 ตัวท้ายของ serial ใน listItems
+      if (input.length <= 6) {
+        const inputLower = input.toLowerCase();
+        const matchedSerial = listItems
+          .flatMap(i => i.serials || [])
+          .find(s => s.toLowerCase().endsWith(inputLower));
+        if (matchedSerial) {
+          handleScanResultRef.current?.(matchedSerial);
+          return;
+        }
+      }
+      handleScanResultRef.current?.(input);
+    });
   };
 
   // ── Save ──────────────────────────────────────────────────────

@@ -29,26 +29,34 @@ function AppContent() {
     if (currentUser) fetchItems()
   }, [currentUser, fetchItems])
 
-  // ── Browser back/forward support ────────────────────────────
-  const setView = useCallback((newView) => {
-    if (newView !== view) {
-      window.history.pushState({ view: newView }, '', `#${newView}`)
-    }
-    setViewState(newView)
-  }, [view])
-
-  // restore view จาก URL hash ตอน mount
+  // ── init: set initial history state ─────────────────────────
   useEffect(() => {
-    const hash = window.location.hash.replace('#', '')
-    if (hash) setViewState(hash)
-    else window.history.replaceState({ view: 'dashboard' }, '', '#dashboard')
+    const hash = window.location.hash.replace('#', '') || 'dashboard'
+    setViewState(hash)
+    // replaceState เพื่อให้ state เริ่มต้นมี view
+    window.history.replaceState({ view: hash, countStep: 'category' }, '', `#${hash}`)
   }, [])
 
-  // รับ popstate (กดกลับ/ไปข้างหน้าของมือถือ/browser)
+  // ── navigate: push history ───────────────────────────────────
+  const setView = useCallback((newView) => {
+    setViewState(newView)
+    window.history.pushState(
+      { view: newView, countStep: 'category' },
+      '', `#${newView}`
+    )
+  }, [])
+
+  // ── popstate: handle back/forward ────────────────────────────
   useEffect(() => {
     const onPop = (e) => {
-      const v = e.state?.view || window.location.hash.replace('#', '') || 'dashboard'
-      setViewState(v)
+      const s = e.state
+      const v = s?.view || window.location.hash.replace('#', '') || 'dashboard'
+      // ถ้าอยู่หน้า count และ StockCount ยังไม่ได้จัดการ (step = category)
+      // หรือออกจากหน้า count → setView
+      if (v !== 'count' || s?.countStep === 'category') {
+        setViewState(v)
+      }
+      // ถ้า v === 'count' และ countStep !== 'category' → StockCount จัดการเอง
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -78,7 +86,6 @@ function AppContent() {
   return (
     <div className="flex h-screen bg-slate-900 text-white overflow-hidden">
       <Sidebar currentView={view} onNavigate={setView} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header
           search={search}
@@ -89,21 +96,17 @@ function AppContent() {
           onMenuToggle={() => setMobileOpen(o => !o)}
         />
         <main className={`flex-1 p-4 md:p-6 ${
-          view === 'count'
-            ? 'overflow-hidden flex flex-col'
-            : 'overflow-y-auto'
+          view === 'count' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'
         }`}>
           {renderPage()}
         </main>
       </div>
-
       {editingItem !== null && (
         <StockModal
           item={editingItem === 'new' ? null : editingItem}
           onClose={() => setEditingItem(null)}
         />
       )}
-
       {toast && <Toast message={toast.message} type={toast.type} />}
     </div>
   )
