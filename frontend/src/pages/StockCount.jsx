@@ -54,28 +54,6 @@ export default function StockCount() {
   const syncTimerRef = useRef(null)
   const audioCtxRef = useRef(null)
 
-  // ── restore session เมื่อ refresh ──────────────────────────
-  useEffect(() => {
-    const saved = (() => { try { return JSON.parse(sessionStorage.getItem('sc_state') || '{}') } catch { return {} } })()
-    if (saved.step === 'count' && saved.selectedCat && saved.selectedSub) {
-      const today = new Date().toISOString().slice(0, 10)
-      const key = (`scan_${saved.selectedCat}_${saved.selectedSub}_${today}`).replace(/[/\s]/g, '_')
-      sessionKeyRef.current = key
-      fetch(`/api/scan-session/${key}`)
-        .then(r => r.json())
-        .then(data => {
-          const s = new Set(data.serials || [])
-          setScannedSerials(s)
-          scannedSerialsRef.current = s
-        })
-        .catch(() => {})
-    }
-  }, [])
-
-  useEffect(() => {
-    try { sessionStorage.setItem('sc_state', JSON.stringify({ step, selectedCat, selectedSub })) } catch {}
-  }, [step, selectedCat, selectedSub])
-
   // Barcode gun: รับ input keyboard เร็วๆ (เฉพาะตอน gunMode เปิด)
   useEffect(() => {
     if (step !== 'count' || !gunMode) return
@@ -105,16 +83,11 @@ export default function StockCount() {
     }
   }, [scannedSerials, step])
 
-  // Camera scanner — ใช้ ZXing + getUserMedia โดยตรง รองรับ Android & iOS
+  // Camera scanner — decode loop ด้วย requestAnimationFrame รองรับ Android & iOS
   const startCamera = async () => {
     try {
-      // ขอ stream กล้องหลังโดยตรง
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       })
       streamRef.current = stream
@@ -124,66 +97,73 @@ export default function StockCount() {
     }
   }
 
-  // เมื่อ video element render แล้ว ค่อย attach stream และ start ZXing
   useEffect(() => {
     if (!scanMode || !videoRef.current || !streamRef.current) return
     const video = videoRef.current
     video.srcObject = streamRef.current
-    video.setAttribute('playsinline', true)
+    video.setAttribute('playsinline', 'true')
+    video.muted = true
     video.play().catch(() => {})
 
-    let controls = null
+    let rafId = null
     let cancelled = false
+    let detector = null
 
-    const startDecoding = async () => {
+    const initAndLoop = async () => {
       try {
-        const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('@zxing/browser')
-
-        // hints: รองรับ barcode format หลักๆ ทั้งหมด
-        const hints = new Map()
-        hints.set(DecodeHintType?.TRY_HARDER ?? 3, true)
-        hints.set(DecodeHintType?.POSSIBLE_FORMATS ?? 2, [
-          BarcodeFormat?.CODE_128,
-          BarcodeFormat?.CODE_39,
-          BarcodeFormat?.EAN_13,
-          BarcodeFormat?.EAN_8,
-          BarcodeFormat?.QR_CODE,
-          BarcodeFormat?.DATA_MATRIX,
-          BarcodeFormat?.UPC_A,
-          BarcodeFormat?.UPC_E,
-          BarcodeFormat?.ITF,
-          BarcodeFormat?.CODABAR,
-        ].filter(Boolean))
-
-        const reader = new BrowserMultiFormatReader(hints)
-        codeReaderRef.current = reader
-
-        controls = await reader.decodeFromVideoElement(video, (result, err) => {
-          if (cancelled) return
-          if (result && !scanCooldownRef.current) {
+        // ใช้ BarcodeDetector native ถ้ามี (Android Chrome เร็วกว่ามาก)
+        if ('BarcodeDetector' in window) {
+          detector = new window.BarcodeDetector({
+            formats: ['code_128','code_39','ean_13','ean_8','qr_code','upc_a','upc_e','itf','codabar','data_matrix']
+          })
+        } else {
+          // fallback: ZXing สำหรับ iOS Safari
+          const { BrowserMultiFormatReader } = await import('@zxing/browser')
+          const reader = new BrowserMultiFormatReader()
+          codeReaderRef.current = reader
+          // ZXing path: ใช้ decodeFromStream แทน loop
+          await reader.decodeFromStream(streamRef.current, video, (result) => {
+            if (cancelled || !result || scanCooldownRef.current) return
             scanCooldownRef.current = true
             handleScanResult(result.getText())
             setTimeout(() => { scanCooldownRef.current = false }, 1500)
+          })
+          return
+        }
+
+        // Native BarcodeDetector loop
+        const loop = async () => {
+          if (cancelled) return
+          if (video.readyState === video.HAVE_ENOUGH_DATA && !scanCooldownRef.current) {
+            try {
+              const barcodes = await detector.detect(video)
+              if (barcodes.length > 0 && barcodes[0].rawValue) {
+                scanCooldownRef.current = true
+                handleScanResult(barcodes[0].rawValue)
+                setTimeout(() => { scanCooldownRef.current = false }, 1500)
+              }
+            } catch {}
           }
-        })
+          rafId = requestAnimationFrame(loop)
+        }
+        rafId = requestAnimationFrame(loop)
       } catch (err) {
         if (!cancelled) {
-          console.error('ZXing error:', err)
-          alert('ไม่สามารถเริ่ม scanner ได้: ' + err.message)
+          console.error('Scanner error:', err)
           setScanMode(false)
         }
       }
     }
 
-    startDecoding()
+    initAndLoop()
 
     return () => {
       cancelled = true
-      controls?.stop?.()
+      if (rafId) cancelAnimationFrame(rafId)
       codeReaderRef.current?.reset?.()
       codeReaderRef.current = null
     }
-  }, [scanMode])
+  }, [scanMode, handleScanResult])
 
   const stopCamera = () => {
     codeReaderRef.current?.reset?.()
@@ -202,21 +182,18 @@ export default function StockCount() {
       if (!audioCtxRef.current)
         audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)()
       const ctx = audioCtxRef.current
-      const play = (freq, duration, oscType = 'sine', delay = 0) => {
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.connect(gain); gain.connect(ctx.destination)
-        osc.type = oscType
-        osc.frequency.value = freq
-        gain.gain.setValueAtTime(0.4, ctx.currentTime + delay)
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration)
-        osc.start(ctx.currentTime + delay)
-        osc.stop(ctx.currentTime + delay + duration)
+      const play = (freq, dur, t = 'sine', d = 0) => {
+        const o = ctx.createOscillator(), g = ctx.createGain()
+        o.connect(g); g.connect(ctx.destination)
+        o.type = t; o.frequency.value = freq
+        g.gain.setValueAtTime(0.4, ctx.currentTime + d)
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + d + dur)
+        o.start(ctx.currentTime + d); o.stop(ctx.currentTime + d + dur)
       }
-      if (type === 'found') { play(1200, 0.12); play(1500, 0.12, 'sine', 0.15) }
-      else if (type === 'duplicate') { play(700, 0.35, 'square') }
-      else { play(300, 0.5, 'sawtooth') }
-    } catch (e) { console.warn('beep:', e) }
+      if (type === 'found') { play(1200,0.12); play(1500,0.12,'sine',0.15) }
+      else if (type === 'duplicate') { play(700,0.35,'square') }
+      else { play(300,0.5,'sawtooth') }
+    } catch {}
   }, [])
 
   const handleScanResult = useCallback((code) => {
@@ -313,9 +290,9 @@ export default function StockCount() {
     setSearchQ("");
     setStep("count");
     
-    // สร้าง session key และดึงข้อมูลจาก API
-    const today = new Date().toISOString().slice(0, 10)
-    const key = (`scan_${selectedCat}_${sub}_${today}`).replace(/[/\s]/g, '_');
+    // สร้าง session key — มีวันที่เพื่อให้นับใหม่ได้ทุกวัน
+    const today = new Date().toISOString().slice(0,10)
+    const key = `scan_${selectedCat}_${sub}_${today}`.replace(/[/\s]/g,'_')
     sessionKeyRef.current = key;
     
     // โหลดข้อมูลจาก API
@@ -396,8 +373,8 @@ export default function StockCount() {
     }
     
     // reset
-    setScannedSerials(new Set());
     scannedSerialsRef.current = new Set();
+    setScannedSerials(new Set());
   };
 
   const cat = selectedCat ? categories[selectedCat] : null;
