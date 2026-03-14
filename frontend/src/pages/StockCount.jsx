@@ -265,47 +265,41 @@ export default function StockCount() {
     setScanResult(null);
   };
 
-  // ── Browser back button: push state ทุกครั้งที่ step เปลี่ยน ──
+  // ── Browser back: pushState ทุก step ───────────────────────
+  const pushCountState = useCallback((s, cat=null, sub=null) => {
+    window.history.pushState({ view:'count', countStep:s, countCat:cat, countSub:sub }, '', '#count')
+  }, [])
+
+  // push เมื่อเลือก cat หรือ sub (ไม่ใช่ตอน mount)
+  const prevStepRef = useRef(null)
   useEffect(() => {
-    // ใช้ replaceState ไม่ใช่ pushState เพื่อไม่ให้ซ้อนกับ App.jsx
-    // App.jsx จะ push #count ไว้แล้ว เราแค่แนบ step ไว้กับ state
-    const cur = window.history.state || {}
-    window.history.replaceState({ ...cur, countStep: step, countCat: selectedCat, countSub: selectedSub }, '')
-  }, [step, selectedCat, selectedSub])
+    if (prevStepRef.current === null) { prevStepRef.current = step; return }
+    if (step !== prevStepRef.current) {
+      prevStepRef.current = step
+      pushCountState(step, selectedCat, selectedSub)
+    }
+  }, [step, selectedCat, selectedSub, pushCountState])
 
   useEffect(() => {
     const onPop = (e) => {
       const s = e.state
-      if (!s) return
-      // อยู่ในหน้า count อยู่
-      if (s.view === 'count') {
-        if (step === 'count') {
-          // count → กลับ subcategory
-          e.stopImmediatePropagation?.()
-          stopCamera()
-          setStep('subcategory')
-          setSelectedSub(null)
-          // push state ใหม่ให้ browser รู้ว่ายังอยู่หน้า count
-          window.history.pushState(
-            { view: 'count', countStep: 'subcategory', countCat: selectedCat },
-            '', '#count'
-          )
-        } else if (step === 'subcategory') {
-          // subcategory → กลับ category
-          e.stopImmediatePropagation?.()
-          setStep('category')
-          setSelectedCat(null)
-          window.history.pushState(
-            { view: 'count', countStep: 'category' },
-            '', '#count'
-          )
-        }
-        // step === 'category' → ปล่อยให้ App.jsx จัดการ (กลับหน้าก่อน)
+      if (!s || s.view !== 'count') return
+      // ย้อน step ตาม countStep ที่อยู่ใน state
+      if (s.countStep === 'subcategory') {
+        stopCamera()
+        setStep('subcategory')
+        setSelectedSub(null)
+      } else if (s.countStep === 'category') {
+        stopCamera()
+        setStep('category')
+        setSelectedCat(null)
+        setSelectedSub(null)
       }
+      // ถ้าไม่มี countStep → App.jsx จัดการเอง (กลับหน้าก่อน count)
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
-  }, [step, selectedCat, selectedSub])
+  }, [])
 
   // ── Barcode Gun ───────────────────────────────────────────────
   useEffect(() => {
