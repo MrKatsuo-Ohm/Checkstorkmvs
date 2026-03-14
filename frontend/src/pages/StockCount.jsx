@@ -120,13 +120,12 @@ export default function StockCount() {
     const codeLower = code.toLowerCase();
     if (scannedSerialsRef.current.has(codeLower)) {
       beep('duplicate');
-      const item = listItems.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
+      const item = items.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
       setScanResult({ serial: code, item, status: 'duplicate' });
       setTimeout(() => setScanResult(null), 1500);
       return;
     }
-    // ค้นหาเฉพาะใน subcategory ที่เลือกอยู่เท่านั้น
-    const found = listItems.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
+    const found = items.find(i => Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower));
     if (found) {
       beep('found');
       scannedSerialsRef.current = new Set(scannedSerialsRef.current);
@@ -150,7 +149,7 @@ export default function StockCount() {
       setScanResult({ serial: code, item: null, status: 'notfound' });
     }
     setTimeout(() => setScanResult(null), 1500);
-  }, [items, listItems, beep]);
+  }, [items, beep]);
 
   // อัปเดต ref ให้ camera/gun ใช้ version ล่าสุดเสมอ
   useEffect(() => { handleScanResultRef.current = handleScanResult; }, [handleScanResult]);
@@ -265,6 +264,36 @@ export default function StockCount() {
     setScanResult(null);
   };
 
+  // ── Browser back button support ─────────────────────────────
+  useEffect(() => {
+    // push state ทุกครั้งที่ step เปลี่ยน
+    const state = { countStep: step, cat: selectedCat, sub: selectedSub }
+    window.history.pushState(state, '', window.location.href)
+  }, [step])
+
+  useEffect(() => {
+    const onPop = (e) => {
+      const s = e.state
+      // ถ้ากดกลับขณะอยู่ใน StockCount → ย้อน step
+      if (s?.countStep) {
+        if (s.countStep === 'count') {
+          stopCamera()
+          setStep('subcategory')
+          setSelectedSub(null)
+          // push state กลับเพื่อไม่ให้ browser ออกจากหน้า
+          window.history.pushState({ countStep: 'subcategory', cat: s.cat }, '', window.location.href)
+        } else if (s.countStep === 'subcategory') {
+          setStep('category')
+          setSelectedCat(null)
+          window.history.pushState({ countStep: 'category' }, '', window.location.href)
+        }
+        // ถ้า countStep === 'category' → ปล่อยให้ App.jsx จัดการ (กลับหน้าหลัก)
+      }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [step, selectedCat, selectedSub])
+
   // ── Barcode Gun ───────────────────────────────────────────────
   useEffect(() => {
     if (step !== 'count' || !gunMode) return;
@@ -320,20 +349,7 @@ export default function StockCount() {
 
   const handleAddManual = (text) => {
     setManualInput('');
-    text.split(/[,\n]/).map(s => s.trim()).filter(Boolean).forEach(input => {
-      // ถ้า input สั้น (≤ 6 ตัว) → ลอง match 4 ตัวท้ายของ serial ใน listItems
-      if (input.length <= 6) {
-        const inputLower = input.toLowerCase();
-        const matchedSerial = listItems
-          .flatMap(i => i.serials || [])
-          .find(s => s.toLowerCase().endsWith(inputLower));
-        if (matchedSerial) {
-          handleScanResultRef.current?.(matchedSerial);
-          return;
-        }
-      }
-      handleScanResultRef.current?.(input);
-    });
+    text.split(/[,\n]/).map(s => s.trim()).filter(Boolean).forEach(code => handleScanResultRef.current?.(code));
   };
 
   // ── Save ──────────────────────────────────────────────────────

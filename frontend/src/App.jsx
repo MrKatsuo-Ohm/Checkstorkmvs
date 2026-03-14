@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { StockProvider, useStock } from './context/StockContext'
 import { UserProvider, useUser } from './context/UserContext'
 import { HistoryProvider } from './context/HistoryContext'
@@ -17,7 +17,7 @@ import StockCount from './pages/StockCount'
 import CountSummary from './pages/CountSummary'
 
 function AppContent() {
-  const [view, setView] = useState('dashboard')
+  const [view, setViewState] = useState('dashboard')
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
   const [editingItem, setEditingItem] = useState(null)
@@ -28,6 +28,31 @@ function AppContent() {
   useEffect(() => {
     if (currentUser) fetchItems()
   }, [currentUser, fetchItems])
+
+  // ── Browser back/forward support ────────────────────────────
+  const setView = useCallback((newView) => {
+    if (newView !== view) {
+      window.history.pushState({ view: newView }, '', `#${newView}`)
+    }
+    setViewState(newView)
+  }, [view])
+
+  // restore view จาก URL hash ตอน mount
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '')
+    if (hash) setViewState(hash)
+    else window.history.replaceState({ view: 'dashboard' }, '', '#dashboard')
+  }, [])
+
+  // รับ popstate (กดกลับ/ไปข้างหน้าของมือถือ/browser)
+  useEffect(() => {
+    const onPop = (e) => {
+      const v = e.state?.view || window.location.hash.replace('#', '') || 'dashboard'
+      setViewState(v)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   const handleSearch = (val) => {
     setSearch(val)
