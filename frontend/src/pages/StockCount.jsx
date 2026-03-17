@@ -10,9 +10,20 @@ import { useHistory } from "../context/HistoryContext";
 import { categories } from "../utils/constants";
 
 const CAT_LABELS = {
-  hardware:'ฮาร์ดแวร์', accessories:'อุปกรณ์เสริม', monitors:'จอมอนิเตอร์',
-  networking:'อุปกรณ์เครือข่าย', software:'ซอฟต์แวร์', storage:'อุปกรณ์จัดเก็บ',
-  notebook:'โน้ตบุ๊ก', peripherals:'อุปกรณ์ต่อพ่วง', Printer:'Printer & Ink', misc:'อุปกรณ์อื่นๆ',
+  // lowercase keys (existing)
+  hardware:    'ฮาร์ดแวร์',
+  accessories: 'อุปกรณ์เสริม',
+  monitors:    'จอมอนิเตอร์',
+  networking:  'อุปกรณ์เครือข่าย',
+  software:    'ซอฟต์แวร์',
+  storage:     'อุปกรณ์จัดเก็บ',
+  notebook:    'โน้ตบุ๊ก',
+  peripherals: 'อุปกรณ์ต่อพ่วง',
+  // PascalCase keys (from updated Stock.js)
+  Printer:     'Printer & Ink',
+  Notebook:    'โน้ตบุ๊ก (ASUS/ACER/HP/Lenovo)',
+  Storage:     'อุปกรณ์จัดเก็บ (ODD)',
+  Computer:    'คอมพิวเตอร์เซต',
 };
 const getCatLabel = (key) => CAT_LABELS[key] || key;
 
