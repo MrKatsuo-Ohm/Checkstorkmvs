@@ -12,12 +12,12 @@ export const categories = {
   monitors: {
     name: 'จอมอนิเตอร์',
     icon: 'Monitor',
-    subcategories: ['จอ 15-22 นิ้ว', 'จอ 23-24 นิ้ว', 'จอ 27 นิ้ว', 'จอ 31+ นิ้ว', 'จอโชว์']
+    subcategories: ['จอมอนิเตอร์']
   },
   networking: {
     name: 'อุปกรณ์เครือข่าย',
     icon: 'Wifi',
-    subcategories: ['Router', 'Mobile Router', 'Switch', 'Access Point', 'สาย LAN', 'Network Card', 'Wireless USB', 'IP Camera']
+    subcategories: ['Router', 'Mobile Router', 'Switch', 'Access Point', 'สาย LAN', 'LAN CARD', 'Wireless USB','Wireless PCI', 'IP Camera']
   },
   software: {
     name: 'ซอฟต์แวร์',
@@ -27,7 +27,7 @@ export const categories = {
   storage: {
     name: 'อุปกรณ์จัดเก็บ',
     icon: 'HardDrive',
-    subcategories: ['Flash Drive', 'Memory Card', 'Enclosure']
+    subcategories: ['Flash Drive', 'Memory Card', 'Enclosure', 'HDD External', 'SSD External']
   },
   notebook: {
     name: 'โน้ตบุ๊ก',
