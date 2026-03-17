@@ -24,6 +24,7 @@ const CAT_LABELS = {
   Notebook:    'โน้ตบุ๊ก (ASUS/ACER/HP/Lenovo)',
   Storage:     'อุปกรณ์จัดเก็บ (ODD)',
   Computer:    'คอมพิวเตอร์เซต',
+  Misc:        'อุปกรณ์อื่นๆ',
 };
 const getCatLabel = (key) => CAT_LABELS[key] || key;
 
