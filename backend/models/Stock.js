@@ -1002,8 +1002,8 @@ const seedData = [
   item('NX.D3CST.001','AC429-NB ACER Aspire Lite 15 AL15-63P-R54Y/R5 7640HS Silver 2-Y *N130 09033103',2,'notebook','Notebook ทั่วไป',["NXD3CST001544002719F00", "NXD3CST001544002439F00"]),
   item('NX.JXMST.002','AC443-NB ACER Aspire Lite 15 AL15-46P-R77X/R3 5400U Silver 2-Y',2,'notebook','Notebook ทั่วไป',["NXJXMST002603068A82N00", "TCN0CV001175495", "TCN0CV00124749A", "NXJXMST00260306DEA2N00", "TCN0CV03W487494", "TCN0CV03W469496"]),
   item('CJ6C1PA#AKL','HP368-NB HP 15-fd1470TU/CoreUltra5-125H 2-Y *N195 05033103',2,'notebook','Notebook ทั่วไป',["5CD551DVWT", "5CD539D8YF"]),
-  // ── peripherals / Cleaning ──────────────────────────────────
-  item('1083000012','SCREEN CLEANINGKIT KING MASTER 4IN1 KM6 N-W',3,'peripherals','Cleaning',["6902287571289", "6902287571225", "6902287571258"]),
+  // ── misc / Cleaning ──────────────────────────────────
+  item('1083000012','SCREEN CLEANINGKIT KING MASTER 4IN1 KM6 N-W',3,'misc','Cleaning',["6902287571289", "6902287571225", "6902287571258"]),
   // ── peripherals / Plug/Surge Protector ──────────────────────────────────
   item('1076000015','PLUG ANITECH 3 WAY 1 SWITCH [H433-PRO] 3M WHITE 2-Y',3,'peripherals','Plug/Surge Protector',["6911036366772", "6911036366775", "6911036366773"]),
   item('1076000052','PLUG ANITECH 3 WAY 1 SWITCH [H533-ON] 3M. WHITE 5-Y',2,'peripherals','Plug/Surge Protector',["6812297264488", "6902046275608"]),
