@@ -19,12 +19,13 @@ const CAT_LABELS = {
   storage:     'อุปกรณ์จัดเก็บ',
   notebook:    'โน้ตบุ๊ก',
   peripherals: 'อุปกรณ์ต่อพ่วง',
+  misc:        'อุปกรณ์อื่นๆ',
   // PascalCase keys (from updated Stock.js)
   Printer:     'Printer & Ink',
   Notebook:    'โน้ตบุ๊ก (ASUS/ACER/HP/Lenovo)',
   Storage:     'อุปกรณ์จัดเก็บ (ODD)',
   Computer:    'คอมพิวเตอร์เซต',
-  Misc:        'อุปกรณ์อื่นๆ',
+  
 };
 const getCatLabel = (key) => CAT_LABELS[key] || key;
 
