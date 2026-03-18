@@ -869,8 +869,8 @@ const seedData = [
   item('1068000001','SSD 256GB APACER AS350 SATA 2.5 (AP256GAS350-1) 3-Y',2,'hardware','SSD SATA',["192538300369", "192538300303"]),
   item('1068000026','SSD SATA 250GB SANDISK PLUS SDSSDA-250G-G28 3-Y',1,'hardware','SSD SATA',["2539DC400121"]),
   item('0454004939','SSD SATA 250GB WD BLUE SA510 (WDS250G3B0A) 5-Y',6,'hardware','SSD SATA',["254843800921", "254843800353", "254843801579", "25036W4A2Y12", "25036W4A3102", "254843800859"]),
-  // ── hardware / Sound Card ──────────────────────────────────
-  item('0673022012','SOUND CARD CREATIVE SOUND BLASTER PLAY! 3 1-Y',1,'hardware','Sound Card',["YDSB1730544002010V"]),
+  // ── accessories / Sound Card ──────────────────────────────────
+  item('0673022012','SOUND CARD CREATIVE SOUND BLASTER PLAY! 3 1-Y',1,'accessories','Sound Card',["YDSB1730544002010V"]),
   // ── monitors ────────────────────────────────
   item('1014000667','MONITOR 23.8 AOC IPS 24B15H3/67 120Hz 3Y',2,'monitors','จอมอนิเตอร์',["AEP15547R02842", "AEP15547R02844"]),
   item('1014000639','MONITOR 23.8 AOC IPS 24G50Z/67 260Hz(OC) 3Y',1,'monitors','จอมอนิเตอร์',["XM8RAHA008690"]),
