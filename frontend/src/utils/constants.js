@@ -27,7 +27,7 @@ export const categories = {
   storage: {
     name: 'อุปกรณ์จัดเก็บ',
     icon: 'HardDrive',
-    subcategories: ['Flash Drive', 'Memory Card', 'Enclosure', 'HDD External', 'SSD External']
+    subcategories: ['Flash Drive', 'Memory Card', 'Enclosure', 'External', 'DVD External']
   },
   notebook: {
     name: 'โน้ตบุ๊ก',
