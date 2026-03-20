@@ -17,7 +17,7 @@ export const categories = {
   networking: {
     name: 'อุปกรณ์เครือข่าย',
     icon: 'Wifi',
-    subcategories: ['Router', 'Mobile Router', 'Switch', 'Access Point', 'สาย LAN', 'LAN CARD', 'Wireless USB','Wireless PCI', 'IP Camera']
+    subcategories: ['Router', 'Mobile Router', 'Switch', 'Access Point', 'สาย LAN', 'LAN CARD', 'Wireless USB', 'Wireless PCI', 'IP Camera']
   },
   software: {
     name: 'ซอฟต์แวร์',
@@ -39,15 +39,17 @@ export const categories = {
     icon: 'Layers',
     subcategories: ['Plug/Surge Protector']
   },
-  Printer: {
+  // แก้: เปลี่ยนจาก "Printer" (P ใหญ่) → "printer" (p เล็ก) ให้สม่ำเสมอ
+  printer: {
     name: 'Printer & Ink',
     icon: 'Printer',
     subcategories: ['Printer', 'Toner/Ink', 'Scanner']
   },
-  misc : {
+  // แก้: ลบช่องว่างนำหน้า "misc " → "misc" และแก้ icon ลบ space ต่อท้าย
+  misc: {
     name: 'อุปกรณ์อื่นๆ',
-    icon: 'MoreHorizontal ',
-    subcategories: ['Cleaning','อื่นๆ']
+    icon: 'MoreHorizontal',
+    subcategories: ['Cleaning', 'อื่นๆ']
   }
 }
 

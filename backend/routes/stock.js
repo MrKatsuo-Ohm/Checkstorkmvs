@@ -1,89 +1,80 @@
-const express = require('express');
-const router = express.Router();
-const StockModel = require('../models/Stock');
+const express = require('express')
+const router  = express.Router()
+const Stock   = require('../models/Stock')
 
-// GET /api/stock - Get all items
-router.get('/', (req, res) => {
+// GET /api/stock
+router.get('/', async (req, res) => {
   try {
-    const items = StockModel.getAll();
-    res.json({ success: true, data: items, count: items.length });
+    const items = await Stock.find().sort({ createdAt: -1 })
+    res.json({ success: true, data: items, count: items.length })
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message })
   }
-});
+})
 
-// GET /api/stock/stats - Get statistics
-router.get('/stats', (req, res) => {
+// GET /api/stock/stats
+router.get('/stats', async (req, res) => {
   try {
-    const stats = StockModel.getStats();
-    res.json({ success: true, data: stats });
+    const items = await Stock.find()
+    const total      = items.length
+    const totalQty   = items.reduce((s, i) => s + i.quantity, 0)
+    const lowStock   = items.filter(i => i.min_stock > 0 && i.quantity <= i.min_stock).length
+    const totalValue = items.reduce((s, i) => s + i.quantity * i.price, 0)
+    res.json({ success: true, data: { total, totalQty, lowStock, totalValue } })
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message })
   }
-});
+})
 
-// GET /api/stock/:id - Get single item
-router.get('/:id', (req, res) => {
+// GET /api/stock/:id
+router.get('/:id', async (req, res) => {
   try {
-    const item = StockModel.getById(req.params.id);
-    if (!item) {
-      return res.status(404).json({ success: false, error: 'Item not found' });
-    }
-    res.json({ success: true, data: item });
+    const item = await Stock.findById(req.params.id)
+    if (!item) return res.status(404).json({ success: false, error: 'Item not found' })
+    res.json({ success: true, data: item })
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message })
   }
-});
+})
 
-// POST /api/stock - Create new item
-router.post('/', (req, res) => {
+// POST /api/stock
+router.post('/', async (req, res) => {
   try {
-    const { name, category, subcategory, quantity, price } = req.body;
+    const { name, category, subcategory } = req.body
+    if (!name || !category || !subcategory)
+      return res.status(400).json({ success: false, error: 'Missing required fields: name, category, subcategory' })
 
-    // Validation
-    if (!name || !category || !subcategory || quantity === undefined || price === undefined) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: name, category, subcategory, quantity, price'
-      });
-    }
-
-    const newItem = StockModel.create(req.body);
-    res.status(201).json({ success: true, data: newItem, message: 'Item created successfully' });
+    const item = await Stock.create(req.body)
+    res.status(201).json({ success: true, data: item, message: 'Item created successfully' })
   } catch (err) {
-    if (err.message.includes('Maximum limit')) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message })
   }
-});
+})
 
-// PUT /api/stock/:id - Update item
-router.put('/:id', (req, res) => {
+// PUT /api/stock/:id
+router.put('/:id', async (req, res) => {
   try {
-    const item = StockModel.getById(req.params.id);
-    if (!item) {
-      return res.status(404).json({ success: false, error: 'Item not found' });
-    }
-
-    const updated = StockModel.update(req.params.id, req.body);
-    res.json({ success: true, data: updated, message: 'Item updated successfully' });
+    const item = await Stock.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    )
+    if (!item) return res.status(404).json({ success: false, error: 'Item not found' })
+    res.json({ success: true, data: item, message: 'Item updated successfully' })
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message })
   }
-});
+})
 
-// DELETE /api/stock/:id - Delete item
-router.delete('/:id', (req, res) => {
+// DELETE /api/stock/:id
+router.delete('/:id', async (req, res) => {
   try {
-    const deleted = StockModel.delete(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ success: false, error: 'Item not found' });
-    }
-    res.json({ success: true, message: 'Item deleted successfully' });
+    const item = await Stock.findByIdAndDelete(req.params.id)
+    if (!item) return res.status(404).json({ success: false, error: 'Item not found' })
+    res.json({ success: true, message: 'Item deleted successfully' })
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message })
   }
-});
+})
 
-module.exports = router;
+module.exports = router

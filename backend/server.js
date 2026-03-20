@@ -1,141 +1,201 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
-const stockRoutes = require('./routes/stock');
+require('dotenv').config()
 
-const app = express();
-const PORT = process.env.PORT || 5000;
+const express    = require('express')
+const cors       = require('cors')
+const path       = require('path')
+const mongoose   = require('mongoose')
+const stockRoutes = require('./routes/stock')
+const History    = require('./models/History')
+const CountLock  = require('./models/CountLock')
+const ScanSession = require('./models/ScanSession')
 
-app.use(cors());
-app.use(express.json());
+const app  = express()
+const PORT = process.env.PORT || 5000
 
-// API Routes
-app.use('/api/stock', stockRoutes);
+// ── CORS ──────────────────────────────────────────────────────────────────────
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(s => s.trim()).filter(Boolean)
 
-// ── Scan Session (เก็บลงไฟล์) ────────────────────────────────────────────────
-const SESSION_FILE = path.join(__dirname, 'scan_sessions.json');
-let scanSessions = {};
-try {
-  if (fs.existsSync(SESSION_FILE)) {
-    const parsed = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
-    for (const [k, v] of Object.entries(parsed)) {
-      scanSessions[k] = new Set(v);
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin)) {
+      cb(null, true)
+    } else {
+      cb(new Error(`CORS: origin ${origin} not allowed`))
     }
-  }
-} catch (e) { console.warn('Could not load scan sessions:', e.message); }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}))
 
-const saveSessions = () => {
+app.use(express.json({ limit: '2mb' }))
+
+// ── Stock Routes ──────────────────────────────────────────────────────────────
+app.use('/api/stock', stockRoutes)
+
+// ── Scan Session ──────────────────────────────────────────────────────────────
+app.get('/api/scan-session/:key', async (req, res) => {
   try {
-    const obj = {};
-    for (const [k, v] of Object.entries(scanSessions)) obj[k] = Array.from(v);
-    fs.writeFileSync(SESSION_FILE, JSON.stringify(obj, null, 2), 'utf8');
-  } catch (e) { console.warn('Could not save scan sessions:', e.message); }
-};
-
-app.get('/api/scan-session/:key', (req, res) => {
-  res.json({ serials: Array.from(scanSessions[req.params.key] || []) });
-});
-app.post('/api/scan-session/:key', (req, res) => {
-  const { serial } = req.body;
-  if (!serial) return res.status(400).json({ error: 'serial required' });
-  if (!scanSessions[req.params.key]) scanSessions[req.params.key] = new Set();
-  scanSessions[req.params.key].add(serial.toLowerCase());
-  saveSessions();
-  res.json({ ok: true, count: scanSessions[req.params.key].size });
-});
-app.delete('/api/scan-session/:key', (req, res) => {
-  delete scanSessions[req.params.key];
-  saveSessions();
-  res.json({ ok: true });
-});
-
-// ── History (เก็บลงไฟล์) ──────────────────────────────────────────────────────
-const HISTORY_FILE = path.join(__dirname, 'history.json');
-let historyData = [];
-try {
-  if (fs.existsSync(HISTORY_FILE)) {
-    historyData = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+    const session = await ScanSession.findOne({ key: req.params.key })
+    res.json({ serials: session?.serials || [] })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
-} catch (e) { console.warn('Could not load history:', e.message); }
+})
 
-const saveHistory = () => {
+app.post('/api/scan-session/:key', async (req, res) => {
   try {
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(historyData, null, 2), 'utf8');
-  } catch (e) { console.warn('Could not save history:', e.message); }
-};
+    const { serial } = req.body
+    if (!serial || typeof serial !== 'string')
+      return res.status(400).json({ error: 'serial is required' })
 
-// GET  /api/history — ดึงประวัติทั้งหมด
-app.get('/api/history', (req, res) => {
-  res.json(historyData);
-});
-
-// POST /api/history — เพิ่มรายการประวัติ
-app.post('/api/history', (req, res) => {
-  const entry = req.body;
-  if (!entry || !entry.id) return res.status(400).json({ error: 'invalid entry' });
-  // ป้องกัน duplicate id
-  if (!historyData.find(h => h.id === entry.id)) {
-    historyData.unshift(entry); // ใหม่สุดอยู่หัว
-    saveHistory();
+    const session = await ScanSession.findOneAndUpdate(
+      { key: req.params.key },
+      {
+        $addToSet: { serials: serial.toLowerCase().trim() },
+        $set: { updatedAt: new Date() }
+      },
+      { upsert: true, new: true }
+    )
+    res.json({ ok: true, count: session.serials.length })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
-  res.json({ ok: true });
-});
+})
 
-// DELETE /api/history — ล้างประวัติทั้งหมด
-app.delete('/api/history', (req, res) => {
-  historyData = [];
-  saveHistory();
-  res.json({ ok: true });
-});
-
-// ── Count Lock ───────────────────────────────────────────────────────────────
-const LOCK_FILE = path.join(__dirname, 'count_locks.json');
-let countLocks = new Set();
-try {
-  if (fs.existsSync(LOCK_FILE)) {
-    countLocks = new Set(JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8')));
+app.delete('/api/scan-session/:key', async (req, res) => {
+  try {
+    await ScanSession.deleteOne({ key: req.params.key })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
-} catch (e) { console.warn('Could not load count locks:', e.message); }
+})
 
-const saveLocks = () => {
-  try { fs.writeFileSync(LOCK_FILE, JSON.stringify(Array.from(countLocks)), 'utf8'); }
-  catch (e) { console.warn('Could not save count locks:', e.message); }
-};
+// ── History ───────────────────────────────────────────────────────────────────
+app.get('/api/history', async (req, res) => {
+  try {
+    const history = await History.find().sort({ timestamp: -1 }).limit(5000)
+    res.json(history)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
-app.get('/api/count-lock/:key', (req, res) => {
-  res.json({ locked: countLocks.has(req.params.key) });
-});
-app.post('/api/count-lock/:key', (req, res) => {
-  countLocks.add(req.params.key);
-  saveLocks();
-  res.json({ ok: true });
-});
-app.delete('/api/count-lock/all', (req, res) => {
-  countLocks.clear();
-  saveLocks();
-  res.json({ ok: true });
-});
+app.post('/api/history', async (req, res) => {
+  try {
+    const entry = req.body
+    if (!entry || !entry.itemName)
+      return res.status(400).json({ error: 'invalid entry' })
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'IT Stock API is running' });
-});
+    await History.create({
+      type:           entry.type,
+      itemId:         entry.itemId || '',
+      itemName:       entry.itemName,
+      category:       entry.category || '',
+      subcategory:    entry.subcategory || '',
+      quantityBefore: entry.quantityBefore ?? 0,
+      quantityAfter:  entry.quantityAfter  ?? 0,
+      priceBefore:    entry.priceBefore    ?? 0,
+      priceAfter:     entry.priceAfter     ?? 0,
+      counter:        entry.counter || 'ไม่ระบุ',
+      note:           entry.note || '',
+      timestamp:      entry.timestamp ? new Date(entry.timestamp) : new Date(),
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
-// Serve React build
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+app.delete('/api/history', async (req, res) => {
+  try {
+    await History.deleteMany({})
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
-// React Router fallback
+// ── Count Lock ────────────────────────────────────────────────────────────────
+app.get('/api/count-lock/:key', async (req, res) => {
+  try {
+    const lock = await CountLock.findOne({ key: req.params.key })
+    res.json({ locked: !!lock })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/count-lock/:key', async (req, res) => {
+  try {
+    await CountLock.findOneAndUpdate(
+      { key: req.params.key },
+      { $set: { lockedAt: new Date() } },
+      { upsert: true }
+    )
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.delete('/api/count-lock/all', async (req, res) => {
+  try {
+    await CountLock.deleteMany({})
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── Health ────────────────────────────────────────────────────────────────────
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString()
+  })
+})
+
+// ── Serve React build ─────────────────────────────────────────────────────────
+app.use(express.static(path.join(__dirname, '../frontend/dist')))
+
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
-});
+  if (req.path.startsWith('/api/'))
+    return res.status(404).json({ error: 'API route not found' })
+  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'))
+})
 
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
-});
+// ── Error handler ─────────────────────────────────────────────────────────────
+app.use((err, req, res, _next) => {
+  console.error('[Error]', err.message)
+  res.status(500).json({ error: 'Internal server error', message: err.message })
+})
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// ── Connect MongoDB → Start server ────────────────────────────────────────────
+const MONGODB_URI = process.env.MONGODB_URI
+if (!MONGODB_URI) {
+  console.error('❌ MONGODB_URI is not set. Please add it to your environment variables.')
+  process.exit(1)
+}
+
+mongoose.connect(MONGODB_URI)
+  .then(async () => {
+    console.log('✅ MongoDB connected')
+
+    // Seed ข้อมูลเริ่มต้น ถ้า collection ยังว่างอยู่
+    const count = await require('./models/Stock').countDocuments()
+    if (count === 0) {
+      console.log('📦 Seeding initial stock data...')
+      await require('./scripts/seed')()
+      console.log('✅ Seed complete')
+    }
+
+    app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`))
+  })
+  .catch(err => {
+    console.error('❌ MongoDB connection failed:', err.message)
+    process.exit(1)
+  })
