@@ -12,7 +12,7 @@ import { categories } from "../utils/constants";
 const getCatLabel = (key) => categories[key]?.name || key;
 
 // normalize lock key — ใช้เหมือนกันทุกที่เพื่อกัน mismatch
-const makeLockKey = (cat, sub) => `${cat}__${sub}`.replace(/[^a-zA-Z0-9฀-๿]+/g, '_');
+const makeLockKey = (cat, sub) => `${cat}|${sub}`;
 
 export default function StockCount() {
   const { items } = useStock();
