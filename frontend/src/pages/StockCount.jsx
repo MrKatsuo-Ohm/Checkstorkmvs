@@ -17,6 +17,7 @@ export default function StockCount() {
   const { addHistoryEntry } = useHistory();
 
   const [step, setStep]               = useState("category");
+  const [lockedSubs, setLockedSubs]   = useState(new Set()); // subcategory ที่นับแล้วทุกเครื่อง
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedSub, setSelectedSub] = useState(null);
   const [scannedSerials, setScannedSerials] = useState(new Set());
@@ -289,6 +290,11 @@ export default function StockCount() {
         await fetch(`/api/count-lock/${sessionKeyRef.current}`, { method: 'POST' }).catch(() => {});
       }
       setIsLocked(true);
+      // อัปเดต lockedSubs ให้ sync ทันที
+      if (selectedCat && selectedSub) {
+        const lockKey = `${selectedCat}__${selectedSub.replace(/\s+/g, '_')}`;
+        setLockedSubs(prev => new Set([...prev, lockKey]));
+      }
     } catch (err) {
       console.error('Save error:', err);
     } finally {
@@ -329,7 +335,21 @@ export default function StockCount() {
             return (
               <button
                 key={key}
-                onClick={() => { setSelectedCat(key); setStep('subcategory'); }}
+                onClick={async () => {
+                  setSelectedCat(key);
+                  // โหลด lock ของทุก subcategory ใน category นี้
+                  const subs = cat.subcategories || [];
+                  const locks = await Promise.all(
+                    subs.map(sub =>
+                      fetch(`/api/count-lock/${key}__${sub.replace(/\s+/g,'_')}`)
+                        .then(r => r.json())
+                        .then(d => d.locked ? `${key}__${sub}` : null)
+                        .catch(() => null)
+                    )
+                  );
+                  setLockedSubs(new Set(locks.filter(Boolean)));
+                  setStep('subcategory');
+                }}
                 className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 rounded-2xl p-4 text-center transition-all"
               >
                 <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center">
@@ -362,20 +382,39 @@ export default function StockCount() {
           {subCatsWithItems.map(sub => {
             const subItems = items.filter(i => i.category === selectedCat && i.subcategory === sub);
             const totalQ = subItems.reduce((s, i) => s + (i.serials?.length || i.quantity), 0);
+            const lockKey = `${selectedCat}__${sub.replace(/\s+/g, '_')}`;
+            const isSubLocked = lockedSubs.has(lockKey);
             return (
               <button
                 key={sub}
-                onClick={() => { setSelectedSub(sub); setStep('scan'); }}
-                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 rounded-2xl p-4 flex items-center gap-4 text-left transition-all"
+                disabled={isSubLocked}
+                onClick={() => {
+                  if (isSubLocked) return;
+                  setSelectedSub(sub);
+                  setStep('scan');
+                }}
+                className={`rounded-2xl p-4 flex items-center gap-4 text-left transition-all border ${
+                  isSubLocked
+                    ? 'bg-slate-800/40 border-slate-700/50 opacity-60 cursor-not-allowed'
+                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50'
+                }`}
               >
-                <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center shrink-0">
-                  <Package className="w-5 h-5 text-blue-400" />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  isSubLocked ? 'bg-emerald-500/10' : 'bg-blue-500/10'
+                }`}>
+                  {isSubLocked
+                    ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    : <Package className="w-5 h-5 text-blue-400" />
+                  }
                 </div>
-                <div>
-                  <p className="font-medium">{sub}</p>
-                  <p className="text-sm text-slate-400">{subItems.length} รายการ · {totalQ} ชิ้น</p>
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium ${isSubLocked ? 'text-slate-400' : ''}`}>{sub}</p>
+                  <p className="text-sm text-slate-500">{subItems.length} รายการ · {totalQ} ชิ้น</p>
+                  {isSubLocked && (
+                    <p className="text-xs text-emerald-400 mt-0.5">✓ นับแล้ว</p>
+                  )}
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 ml-auto shrink-0" />
+                {!isSubLocked && <ChevronRight className="w-4 h-4 text-slate-500 ml-auto shrink-0" />}
               </button>
             );
           })}
