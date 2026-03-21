@@ -376,13 +376,20 @@ export default function StockCount() {
   }
 
   // ── Step: scan ────────────────────────────────────────────────
-  // ✅ แก้: ใช้ absolute positioning เพื่อให้ container มี height แน่นอน
-  // แทนที่จะพึ่ง h-full ซึ่งต้องการ parent มี height ที่แน่นอน
+  // mobile  : เลื่อนทั้งหน้าได้ (overflow-y-auto, ไม่ fixed height)
+  // desktop : absolute inset-0 → fixed height → serial list scroll ข้างใน
   return (
-    <div className="absolute inset-0 flex flex-col lg:flex-row gap-4 p-4 md:p-6 overflow-hidden">
+    <div className="
+      flex flex-col gap-4 p-4
+      overflow-y-auto
+      lg:absolute lg:inset-0 lg:flex-row lg:p-6 lg:overflow-hidden
+    ">
 
-      {/* Main panel — flex-col, list scroll ข้างใน */}
-      <div className="flex-1 flex flex-col min-h-0 bg-slate-800 border border-slate-700 rounded-2xl p-4 overflow-hidden">
+      {/* Main panel */}
+      <div className="
+        flex flex-col bg-slate-800 border border-slate-700 rounded-2xl p-4
+        lg:flex-1 lg:min-h-0 lg:overflow-hidden
+      ">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-3 shrink-0">
@@ -498,8 +505,8 @@ export default function StockCount() {
           </div>
         )}
 
-        {/* ✅ Serial list — flex-1 + overflow-y-auto ทำให้ scroll ได้ */}
-        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+        {/* Serial list — desktop: flex-1 scroll, mobile: ความสูงตามเนื้อหา */}
+        <div className="space-y-1.5 pr-1 lg:flex-1 lg:overflow-y-auto">
           {filtered.length === 0 && (
             <div className="flex items-center justify-center h-40 text-slate-500 text-sm">
               ไม่พบรายการ
@@ -535,8 +542,8 @@ export default function StockCount() {
         </div>
       </div>
 
-      {/* Side panel สรุป — mobile: scroll ได้, desktop: fixed width */}
-      <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3 overflow-y-auto lg:overflow-visible">
+      {/* Side panel — mobile: full width, desktop: fixed 288px */}
+      <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
             <span className="text-slate-400">

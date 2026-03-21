@@ -118,7 +118,7 @@ function AppContent() {
         <main
           className={`flex-1 ${
             view === "count"
-              ? "relative overflow-hidden"
+              ? "overflow-y-auto lg:relative lg:overflow-hidden"
               : "overflow-y-auto p-4 md:p-6"
           }`}
         >
