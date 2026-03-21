@@ -13,6 +13,8 @@ const HistorySchema = new mongoose.Schema({
   counter:        { type: String, default: 'ไม่ระบุ' },
   note:           { type: String, default: '' },
   timestamp:      { type: Date, default: Date.now },
+  scannedSerials: { type: [String], default: [] },
+  missingSerials: { type: [String], default: [] },
 }, {
   versionKey: false
 })

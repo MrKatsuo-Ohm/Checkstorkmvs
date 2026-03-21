@@ -1,5 +1,3 @@
-require('dotenv').config()
-
 const express    = require('express')
 const cors       = require('cors')
 const path       = require('path')
@@ -101,6 +99,8 @@ app.post('/api/history', async (req, res) => {
       counter:        entry.counter || 'ไม่ระบุ',
       note:           entry.note || '',
       timestamp:      entry.timestamp ? new Date(entry.timestamp) : new Date(),
+      scannedSerials: Array.isArray(entry.scannedSerials) ? entry.scannedSerials : [],
+      missingSerials: Array.isArray(entry.missingSerials) ? entry.missingSerials : [],
     })
     res.json({ ok: true })
   } catch (err) {
