@@ -140,6 +140,16 @@ app.post('/api/count-lock/:key', async (req, res) => {
   }
 })
 
+// GET /api/count-lock — ดึง lock ทั้งหมด
+app.get('/api/count-lock', async (req, res) => {
+  try {
+    const locks = await CountLock.find({}, 'key')
+    res.json({ keys: locks.map(l => l.key) })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // DELETE /api/count-lock/:key — ปลด lock ทีละ subcategory
 app.delete('/api/count-lock/:key', async (req, res) => {
   if (req.params.key === 'all') {

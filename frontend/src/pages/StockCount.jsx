@@ -21,7 +21,16 @@ export default function StockCount() {
 
   const [step, setStep]               = useState("category");
   const [lockedSubs, setLockedSubs]   = useState(new Set()); // subcategory ที่นับแล้วทุกเครื่อง
-  const [loadingLocks, setLoadingLocks] = useState(false);    // กำลังโหลด lock status
+
+  // โหลด lock ทั้งหมดจาก backend ตอน mount (รองรับ refresh)
+  useEffect(() => {
+    fetch('/api/count-lock')
+      .then(r => r.json())
+      .then(({ keys }) => {
+        if (Array.isArray(keys)) setLockedSubs(new Set(keys));
+      })
+      .catch(() => {});
+  }, []);
 
   // ฟัง event จาก HistoryContext ตอนล้างประวัติ → reset lock ทันที
   useEffect(() => {
@@ -402,22 +411,25 @@ export default function StockCount() {
                 key={key}
                 onClick={() => {
                   setSelectedCat(key);
-                  setLockedSubs(new Set());
-                  setLoadingLocks(true);
                   setStep('subcategory');
-                  // load lock ใน background
+                  // refresh lock ของ category นี้ใน background
+                  // merge กับ lockedSubs ที่โหลดมาแล้วตอน mount
                   const subs = cat.subcategories || [];
                   Promise.all(
                     subs.map(sub =>
                       fetch(`/api/count-lock/${makeLockKey(key, sub)}`)
                         .then(r => r.json())
-                        .then(d => d.locked ? `${key}__${sub}` : null)
+                        .then(d => d.locked ? makeLockKey(key, sub) : null)
                         .catch(() => null)
                     )
                   ).then(locks => {
-                    setLockedSubs(new Set(locks.filter(Boolean)));
-                    setLoadingLocks(false);
-                  }).catch(() => setLoadingLocks(false));
+                    const found = locks.filter(Boolean);
+                    setLockedSubs(prev => {
+                      const next = new Set(prev);
+                      found.forEach(k => next.add(k));
+                      return next;
+                    });
+                  }).catch(() => {});
                 }}
                 className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 rounded-2xl p-4 text-center transition-all"
               >
@@ -447,14 +459,6 @@ export default function StockCount() {
             {getCatLabel(selectedCat)} — เลือกหมวดย่อย
           </h2>
         </div>
-        {/* Loading indicator ขณะโหลด lock status */}
-        {loadingLocks && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-400">
-            <span className="animate-spin border-2 border-slate-500 border-t-blue-400 rounded-full w-3 h-3 shrink-0" />
-            กำลังตรวจสอบสถานะการนับ...
-          </div>
-        )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {subCatsWithItems.map(sub => {
             const subItems = items.filter(i => i.category === selectedCat && i.subcategory === sub);
