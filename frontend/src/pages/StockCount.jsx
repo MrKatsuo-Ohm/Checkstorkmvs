@@ -465,38 +465,68 @@ export default function StockCount() {
             const totalQ = subItems.reduce((s, i) => s + (i.serials?.length || i.quantity), 0);
             const lockKey = makeLockKey(selectedCat, sub);
             const isSubLocked = lockedSubs.has(lockKey);
+            const handleUnlock = async (e) => {
+              e.stopPropagation();
+              if (!window.confirm(`ปลดล็อค "${sub}" เพื่อนับใหม่?`)) return;
+              try {
+                await fetch(`/api/count-lock/${lockKey}`, { method: 'DELETE' });
+                setLockedSubs(prev => {
+                  const next = new Set(prev);
+                  next.delete(lockKey);
+                  return next;
+                });
+              } catch {}
+            };
+
             return (
-              <button
-                key={sub}
-                disabled={isSubLocked}
-                onClick={() => {
-                  if (isSubLocked) return;
-                  setSelectedSub(sub);
-                  setStep('scan');
-                }}
-                className={`rounded-2xl p-4 flex items-center gap-4 text-left transition-all border ${
-                  isSubLocked
-                    ? 'bg-slate-800/40 border-slate-700/50 opacity-60 cursor-not-allowed'
-                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-blue-500/50'
-                }`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  isSubLocked ? 'bg-emerald-500/10' : 'bg-blue-500/10'
-                }`}>
-                  {isSubLocked
-                    ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                    : <Package className="w-5 h-5 text-blue-400" />
-                  }
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`font-medium ${isSubLocked ? 'text-slate-400' : ''}`}>{sub}</p>
-                  <p className="text-sm text-slate-500">{subItems.length} รายการ · {totalQ} ชิ้น</p>
-                  {isSubLocked && (
-                    <p className="text-xs text-emerald-400 mt-0.5">✓ นับแล้ว</p>
-                  )}
-                </div>
-                {!isSubLocked && <ChevronRight className="w-4 h-4 text-slate-500 ml-auto shrink-0" />}
-              </button>
+              <div key={sub} className={`rounded-2xl border transition-all ${
+                isSubLocked
+                  ? 'bg-slate-800/40 border-slate-700/50'
+                  : 'bg-slate-800 border-slate-700'
+              }`}>
+                <button
+                  disabled={isSubLocked}
+                  onClick={() => {
+                    if (isSubLocked) return;
+                    setSelectedSub(sub);
+                    setStep('scan');
+                  }}
+                  className={`w-full p-4 flex items-center gap-4 text-left transition-all rounded-2xl ${
+                    isSubLocked
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'hover:bg-slate-700 hover:border-blue-500/50'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    isSubLocked ? 'bg-emerald-500/10' : 'bg-blue-500/10'
+                  }`}>
+                    {isSubLocked
+                      ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                      : <Package className="w-5 h-5 text-blue-400" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium ${isSubLocked ? 'text-slate-400' : ''}`}>{sub}</p>
+                    <p className="text-sm text-slate-500">{subItems.length} รายการ · {totalQ} ชิ้น</p>
+                    {isSubLocked && (
+                      <p className="text-xs text-emerald-400 mt-0.5">✓ นับแล้ว</p>
+                    )}
+                  </div>
+                  {!isSubLocked && <ChevronRight className="w-4 h-4 text-slate-500 ml-auto shrink-0" />}
+                </button>
+                {/* ปุ่มปลดล็อค — แสดงเฉพาะตอนล็อค */}
+                {isSubLocked && (
+                  <div className="px-4 pb-3">
+                    <button
+                      onClick={handleUnlock}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-amber-500/20 hover:text-amber-400 text-slate-400 rounded-lg text-xs font-medium transition-all border border-slate-600 hover:border-amber-500/40"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      ปลดล็อคเพื่อนับใหม่
+                    </button>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
