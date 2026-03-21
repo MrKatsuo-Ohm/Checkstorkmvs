@@ -221,7 +221,7 @@ export default function Inventory({ search, filterCategory, onEdit }) {
                     <MapPin className="w-4 h-4" />
                     {item.location || 'ไม่ระบุ'}
                   </span>
-                  <span>Min: {item.min_stock}</span>
+
                 </div>
 
                 <div className="flex gap-2">

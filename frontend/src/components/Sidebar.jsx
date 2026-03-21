@@ -11,7 +11,7 @@ const navItems = [
   { id: 'add', icon: PlusCircle, label: 'เพิ่มสินค้า' },
   { id: 'count', icon: ScanLine, label: 'นับสต๊อก' },
   { id: 'count-summary', icon: PieChart, label: 'สรุปการนับ' },
-  { id: 'low-stock', icon: AlertTriangle, label: 'สต๊อกต่ำ' },
+
   { id: 'history', icon: ClipboardList, label: 'ประวัติการนับ' },
   { id: 'reports', icon: BarChart3, label: 'รายงาน' }
 ]
@@ -89,11 +89,7 @@ export default function Sidebar({ currentView, onNavigate, mobileOpen, onMobileC
               >
                 <Icon className="w-5 h-5 shrink-0" />
                 <span>{label}</span>
-                {id === 'low-stock' && lowCount > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {lowCount}
-                  </span>
-                )}
+
                 {id === 'history' && todayCount > 0 && (
                   <span className="ml-auto bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
                     {todayCount}

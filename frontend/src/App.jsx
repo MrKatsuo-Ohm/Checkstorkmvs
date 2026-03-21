@@ -10,7 +10,6 @@ import LoginScreen from "./components/LoginScreen";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import AddForm from "./pages/AddForm";
-import LowStock from "./pages/LowStock";
 import Reports from "./pages/Reports";
 import StockHistory from "./pages/StockHistory";
 import StockCount from "./pages/StockCount";
@@ -86,8 +85,6 @@ function AppContent() {
         return <Inventory search={search} filterCategory={filterCategory} onEdit={setEditingItem} />;
       case "add":
         return <AddForm onSuccess={() => setView("inventory")} />;
-      case "low-stock":
-        return <LowStock onEdit={setEditingItem} />;
       case "count":
         return <StockCount />;
       case "count-summary":

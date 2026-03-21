@@ -149,17 +149,7 @@ export default function AddForm({ onSuccess }) {
                 placeholder="0"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">จำนวนขั้นต่ำ</label>
-              <input
-                name="min_stock"
-                type="number"
-                min="0"
-                value={form.min_stock}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-              />
-            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">ราคาต่อหน่วย (บาท) *</label>
               <input

@@ -48,8 +48,7 @@ export default function Dashboard({ onNavigate, onFilterCategory }) {
           color="from-blue-500/20 to-blue-600/10 border border-blue-500/30" Icon={Package} />
         <StatCard label="มูลค่ารวม" value={formatCurrency(totalValue)} sub="บาท"
           color="from-emerald-500/20 to-emerald-600/10 border border-emerald-500/30" Icon={Banknote} />
-        <StatCard label="สต๊อกต่ำ" value={formatNumber(lowStock)} sub="รายการ"
-          color="from-amber-500/20 to-amber-600/10 border border-amber-500/30" Icon={AlertTriangle} />
+
         <StatCard label="สินค้าหมด" value={formatNumber(outOfStock)} sub="รายการ"
           color="from-red-500/20 to-red-600/10 border border-red-500/30" Icon={PackageX} />
       </div>

@@ -148,11 +148,7 @@ export default function StockModal({ item, onClose }) {
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                 placeholder="0" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">ขั้นต่ำ</label>
-              <input name="min_stock" type="number" min="0" value={form.min_stock} onChange={handleChange}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-white" />
-            </div>
+
           </div>
 
           <div className="grid grid-cols-2 gap-4">
