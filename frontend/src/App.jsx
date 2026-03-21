@@ -15,6 +15,7 @@ import StockHistory from "./pages/StockHistory";
 import StockCount from "./pages/StockCount";
 import CountSummary from "./pages/CountSummary";
 import ImportForm from "./pages/ImportForm";
+import SyncForm from "./pages/SyncForm";
 
 // หน้าทั้งหมดเรียงตาม navigation hierarchy
 const VIEW_STACK = [
@@ -106,6 +107,8 @@ function AppContent() {
         return <AddForm onSuccess={() => setView("inventory")} />;
       case "import":
         return <ImportForm onSuccess={() => setView("inventory")} />;
+      case "sync":
+        return <SyncForm onSuccess={() => setView("inventory")} />;
       case "count":
         return <StockCount onLockChange={setLockedSubs} />;
       case "count-summary":

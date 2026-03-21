@@ -77,4 +77,59 @@ router.delete('/:id', async (req, res) => {
   }
 })
 
+// POST /api/stock/sync — sync สต็อกทั้งหมดให้ตรงกับไฟล์
+// body: { items: [...] } — รายการทั้งหมดที่ควรมีในระบบ
+router.post('/sync', async (req, res) => {
+  try {
+    const { items } = req.body
+    if (!Array.isArray(items)) return res.status(400).json({ error: 'items must be array' })
+
+    const results = { added: 0, updated: 0, deleted: 0, errors: [] }
+
+    // 1. หา product_code ทั้งหมดในไฟล์
+    const fileCodes = items.map(i => i.product_code).filter(Boolean)
+
+    // 2. ลบสินค้าที่ไม่มีในไฟล์ (เฉพาะที่มี product_code)
+    if (fileCodes.length > 0) {
+      const deleted = await Stock.deleteMany({
+        product_code: { $exists: true, $ne: '', $nin: fileCodes }
+      })
+      results.deleted = deleted.deletedCount
+    }
+
+    // 3. upsert ทุกรายการในไฟล์
+    for (const item of items) {
+      try {
+        const payload = {
+          ...item,
+          quantity: parseInt(item.quantity) || 0,
+          price: parseFloat(item.price) || 0,
+          serials: item.serials || [],
+          updatedAt: new Date()
+        }
+
+        if (item.product_code) {
+          // match ด้วย product_code
+          await Stock.findOneAndUpdate(
+            { product_code: item.product_code },
+            { $set: payload },
+            { upsert: true, new: true }
+          )
+          results.updated++
+        } else {
+          // ไม่มี product_code → เพิ่มใหม่เสมอ
+          await Stock.create(payload)
+          results.added++
+        }
+      } catch (err) {
+        results.errors.push({ name: item.name, error: err.message })
+      }
+    }
+
+    res.json({ ok: true, ...results })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
