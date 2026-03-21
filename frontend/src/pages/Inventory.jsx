@@ -70,8 +70,13 @@ function exportCSV(items) {
 export default function Inventory({ search, filterCategory, onEdit }) {
   const { items, deleteItem, loading } = useStock()
   const [confirming, setConfirming] = useState(null)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 48
 
   // ค้นหาทั้งชื่อสินค้า, subcategory, location และ serial
+  // reset กลับหน้า 1 เมื่อ filter เปลี่ยน
+  React.useEffect(() => { setPage(1) }, [search, filterCategory])
+
   let filtered = [...items]
   if (search) {
     const q = search.toLowerCase()
@@ -86,6 +91,9 @@ export default function Inventory({ search, filterCategory, onEdit }) {
   if (filterCategory !== 'all') {
     filtered = filtered.filter(i => i.category === filterCategory)
   }
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleDelete = async (id) => {
     if (confirming !== id) {
@@ -143,7 +151,7 @@ export default function Inventory({ search, filterCategory, onEdit }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(item => {
+          {paginated.map(item => {
             const status = getStockStatus(item)
             const cat = categories[item.category]
             const CatIcon = LucideIcons[cat?.icon] || Package
@@ -255,6 +263,58 @@ export default function Inventory({ search, filterCategory, onEdit }) {
               </div>
             )
           })}
+        </div>
+      )}
+    {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+          <button
+            onClick={() => setPage(1)}
+            disabled={page === 1}
+            className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm disabled:opacity-40 hover:bg-slate-700 transition-colors"
+          >«</button>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm disabled:opacity-40 hover:bg-slate-700 transition-colors"
+          >‹</button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+            .reduce((acc, p, i, arr) => {
+              if (i > 0 && p - arr[i - 1] > 1) acc.push('...')
+              acc.push(p)
+              return acc
+            }, [])
+            .map((p, i) => p === '...' ? (
+              <span key={`dot-${i}`} className="px-2 text-slate-500">...</span>
+            ) : (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
+                  page === p
+                    ? 'bg-blue-500 border-blue-500 text-white'
+                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                }`}
+              >{p}</button>
+            ))
+          }
+
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm disabled:opacity-40 hover:bg-slate-700 transition-colors"
+          >›</button>
+          <button
+            onClick={() => setPage(totalPages)}
+            disabled={page === totalPages}
+            className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm disabled:opacity-40 hover:bg-slate-700 transition-colors"
+          >»</button>
+
+          <span className="text-slate-400 text-sm ml-2">
+            หน้า {page}/{totalPages} · {filtered.length} รายการ
+          </span>
         </div>
       )}
     </div>
