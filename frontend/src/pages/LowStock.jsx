@@ -10,7 +10,8 @@ export default function LowStock({ onEdit }) {
   // แก้: buffer ที่ผู้ใช้กำหนดได้ แทน hardcode +10
   const [buffer, setBuffer] = useState(10)
 
-  const lowItems = items.filter(i => i.quantity <= i.min_stock)
+  // แสดงเฉพาะ item ที่ตั้ง min_stock > 0 ไว้ และ quantity น้อยกว่าหรือเท่ากับ min_stock
+  const lowItems = items.filter(i => i.min_stock > 0 && i.quantity <= i.min_stock)
 
   return (
     <div className="space-y-4">

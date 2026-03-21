@@ -11,6 +11,9 @@ import { categories } from "../utils/constants";
 
 const getCatLabel = (key) => categories[key]?.name || key;
 
+// normalize lock key — ใช้เหมือนกันทุกที่เพื่อกัน mismatch
+const makeLockKey = (cat, sub) => `${cat}__${sub}`.replace(/[^a-zA-Z0-9฀-๿]+/g, '_');
+
 export default function StockCount() {
   const { items } = useStock();
   const { currentUser } = useUser();
@@ -253,7 +256,7 @@ export default function StockCount() {
 
   useEffect(() => {
     if (selectedCat && selectedSub) {
-      sessionKeyRef.current = `${selectedCat}__${selectedSub}`.replace(/\s+/g, '_');
+      sessionKeyRef.current = makeLockKey(selectedCat, selectedSub);
       fetch(`/api/scan-session/${sessionKeyRef.current}`)
         .then(r => r.json())
         .then(({ serials }) => {
@@ -335,7 +338,7 @@ export default function StockCount() {
       setIsLocked(true);
       // อัปเดต lockedSubs ให้ sync ทันที
       if (selectedCat && selectedSub) {
-        const lockKey = `${selectedCat}__${selectedSub.replace(/\s+/g, '_')}`;
+        const lockKey = makeLockKey(selectedCat, selectedSub);
         setLockedSubs(prev => new Set([...prev, lockKey]));
       }
     } catch (err) {
@@ -406,7 +409,7 @@ export default function StockCount() {
                   const subs = cat.subcategories || [];
                   Promise.all(
                     subs.map(sub =>
-                      fetch(`/api/count-lock/${key}__${sub.replace(/\s+/g,'_')}`)
+                      fetch(`/api/count-lock/${makeLockKey(key, sub)}`)
                         .then(r => r.json())
                         .then(d => d.locked ? `${key}__${sub}` : null)
                         .catch(() => null)
@@ -456,7 +459,7 @@ export default function StockCount() {
           {subCatsWithItems.map(sub => {
             const subItems = items.filter(i => i.category === selectedCat && i.subcategory === sub);
             const totalQ = subItems.reduce((s, i) => s + (i.serials?.length || i.quantity), 0);
-            const lockKey = `${selectedCat}__${sub.replace(/\s+/g, '_')}`;
+            const lockKey = makeLockKey(selectedCat, sub);
             const isSubLocked = lockedSubs.has(lockKey);
             return (
               <button
