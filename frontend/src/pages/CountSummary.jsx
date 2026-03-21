@@ -16,6 +16,47 @@ function formatDateTime(iso) {
   })
 }
 
+// ── คำนวณ serial ที่ขาด/เกิน ─────────────────────────────────────────────────
+// missingSerials = เก็บจาก StockCount ตอนบันทึก (serial ในระบบที่ไม่ถูกสแกน)
+// extraSerials   = serial ที่สแกนได้แต่ไม่มีในระบบ (ปกติจะว่างเพราะ StockCount กรองอยู่แล้ว)
+function getSerialLists(h, items) {
+  // ถ้ามีข้อมูลจาก StockCount โดยตรง → ใช้เลย
+  if (h.missingSerials !== undefined || h.scannedSerials !== undefined) {
+    return {
+      missing: h.missingSerials || [],
+      extra:   [],  // ระบบปัจจุบันไม่มี extra serial เพราะ scan จะ error ถ้าไม่อยู่ในระบบ
+    }
+  }
+  // fallback: คำนวณจาก items (กรณีเป็น history เก่าก่อนอัปเดต)
+  const item = items.find(i => (i._id || i.id) === h.itemId)
+  if (!item?.serials?.length) return { missing: [], extra: [] }
+  const diff = h.quantityBefore - h.quantityAfter
+  if (diff <= 0) return { missing: [], extra: [] }
+  // ไม่รู้ serial ไหนหายไปในข้อมูลเก่า → แสดงทั้งหมดแทน
+  return { missing: item.serials, extra: [] }
+}
+
+// ── Serial Badge ──────────────────────────────────────────────────────────────
+function SerialBadges({ serials, color }) {
+  if (!serials?.length) return null
+  return (
+    <div className="flex flex-wrap gap-1 mt-2">
+      {serials.map(s => (
+        <span
+          key={s}
+          className={`text-xs font-mono px-1.5 py-0.5 rounded border ${
+            color === 'red'
+              ? 'bg-red-500/10 border-red-500/30 text-red-300'
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+          }`}
+        >
+          {s}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 // ── PDF Export ────────────────────────────────────────────────────────────────
 function exportPDF({ allShort, allOver, items, filterDate, filterUser }) {
   const now = new Date().toLocaleString('th-TH', {
@@ -23,118 +64,119 @@ function exportPDF({ allShort, allOver, items, filterDate, filterUser }) {
     hour: '2-digit', minute: '2-digit'
   })
 
-  // หา serial ที่ขาด/เกินของแต่ละรายการ
-  const getSerialDetail = (h) => {
-    const item = items.find(i => i._id === h.itemId || i.id === h.itemId)
-    if (!item?.serials?.length) return null
-    return item.serials
-  }
-
   const buildRows = (list, type) => list.map(h => {
-    const serials = getSerialDetail(h)
+    const { missing, extra } = getSerialLists(h, items)
+    const problemSerials = type === 'short' ? missing : extra
     const diff = type === 'short'
       ? h.quantityBefore - h.quantityAfter
       : h.quantityAfter - h.quantityBefore
-    const serialHTML = serials
-      ? `<div class="serials">${serials.map(s =>
-          `<span class="serial-tag">${s}</span>`
-        ).join('')}</div>`
-      : ''
     const color = type === 'short' ? '#ef4444' : '#f59e0b'
     const label = type === 'short'
       ? `<span style="color:${color}">ขาด ${diff} ชิ้น</span>`
       : `<span style="color:${color}">เกิน ${diff} ชิ้น</span>`
+
+    const serialHTML = problemSerials.length > 0
+      ? `<div style="margin-top:6px">
+           <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">
+             ${type === 'short' ? 'Serial ที่ไม่พบ:' : 'Serial ที่เกิน:'}
+           </div>
+           <div style="display:flex;flex-wrap:wrap;gap:4px">
+             ${problemSerials.map(s =>
+               `<span style="font-family:monospace;font-size:11px;background:${type === 'short' ? '#fee2e2' : '#fef3c7'};border:1px solid ${type === 'short' ? '#fca5a5' : '#fde68a'};border-radius:4px;padding:1px 6px;color:${color}">${s}</span>`
+             ).join('')}
+           </div>
+         </div>`
+      : ''
+
     return `
       <tr>
         <td>
-          <div class="item-name">${h.itemName}</div>
-          <div class="item-sub">${categories[h.category]?.name || h.category} › ${h.subcategory}</div>
-          <div class="item-meta">ผู้นับ: ${h.counter} · ${formatDateTime(h.timestamp)}</div>
+          <div style="font-weight:600;font-size:13px">${h.itemName}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">${categories[h.category]?.name || h.category} › ${h.subcategory}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px">ผู้นับ: ${h.counter} · ${formatDateTime(h.timestamp)}</div>
           ${serialHTML}
         </td>
-        <td class="qty-cell">
-          <span class="qty-before">${h.quantityBefore}</span>
-          <span class="arrow">→</span>
-          <span class="qty-after" style="color:${color}">${h.quantityAfter}</span>
+        <td style="text-align:center;white-space:nowrap;font-size:13px">
+          <span style="color:#94a3b8">${h.quantityBefore}</span>
+          <span style="color:#cbd5e1;margin:0 4px">→</span>
+          <span style="color:${color};font-weight:700">${h.quantityAfter}</span>
         </td>
-        <td class="diff-cell">${label}</td>
+        <td style="text-align:right;white-space:nowrap;font-weight:700;font-size:13px">${label}</td>
       </tr>`
   }).join('')
+
+  const periodLabel = { today: 'วันนี้', week: '7 วันล่าสุด', month: '30 วันล่าสุด', all: 'ทั้งหมด' }[filterDate] || filterDate
+  const totalDiff = allShort.reduce((s, h) => s + (h.quantityBefore - h.quantityAfter), 0)
 
   const html = `<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8"/>
-<title>รายงานสรุปการนับสต๊อก</title>
+<title>รายงานสรุปการนับสต๊อก — รายการผิดปกติ</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Sarabun', 'Tahoma', sans-serif; font-size: 13px; color: #1e293b; padding: 24px; }
-  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: #0f172a; }
-  .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
-  .summary-cards { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-  .card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 18px; min-width: 130px; }
-  .card-label { font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
-  .card-value { font-size: 22px; font-weight: 700; }
-  .card.red { border-color: #fecaca; background: #fff5f5; }
-  .card.red .card-value { color: #ef4444; }
+  body { font-family: 'Sarabun','Tahoma',sans-serif; font-size: 13px; color: #1e293b; padding: 28px; }
+  h1 { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+  .meta { font-size: 11px; color: #64748b; margin-bottom: 20px; }
+  .cards { display: flex; gap: 12px; margin-bottom: 24px; }
+  .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; min-width: 120px; }
+  .card.red { border-color: #fca5a5; background: #fff5f5; }
+  .card.red .val { color: #ef4444; }
   .card.amber { border-color: #fde68a; background: #fffbeb; }
-  .card.amber .card-value { color: #f59e0b; }
-  h2 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; padding: 6px 10px; border-radius: 6px; }
+  .card.amber .val { color: #f59e0b; }
+  .lbl { font-size: 11px; color: #94a3b8; margin-bottom: 2px; }
+  .val { font-size: 20px; font-weight: 700; }
+  h2 { font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 6px; margin: 20px 0 8px; }
   h2.red { background: #fee2e2; color: #b91c1c; }
   h2.amber { background: #fef3c7; color: #92400e; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-  th { background: #f1f5f9; text-align: left; padding: 8px 10px; font-size: 12px; color: #475569; border-bottom: 1px solid #e2e8f0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #f8fafc; padding: 7px 10px; text-align: left; color: #475569; border-bottom: 1px solid #e2e8f0; font-size: 11px; }
   td { padding: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
   tr:last-child td { border-bottom: none; }
-  .item-name { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
-  .item-sub { font-size: 11px; color: #64748b; }
-  .item-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; }
-  .serials { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
-  .serial-tag { font-family: monospace; font-size: 11px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 1px 5px; color: #334155; }
-  .qty-cell { text-align: center; white-space: nowrap; font-size: 13px; }
-  .qty-before { color: #94a3b8; }
-  .arrow { color: #cbd5e1; margin: 0 4px; }
-  .qty-after { font-weight: 700; }
-  .diff-cell { text-align: right; white-space: nowrap; font-weight: 700; font-size: 13px; }
-  @media print {
-    body { padding: 16px; }
-    .no-print { display: none; }
-  }
+  @media print { body { padding: 16px; } }
 </style>
 </head>
 <body>
   <h1>รายงานสรุปการนับสต๊อก — รายการผิดปกติ</h1>
   <div class="meta">
-    พิมพ์เมื่อ: ${now}
+    พิมพ์เมื่อ: ${now} ·
+    ช่วงเวลา: ${periodLabel}
     ${filterUser !== 'all' ? ` · ผู้นับ: ${filterUser}` : ''}
-    · ช่วงเวลา: ${{ today: 'วันนี้', week: '7 วันล่าสุด', month: '30 วันล่าสุด', all: 'ทั้งหมด' }[filterDate] || filterDate}
   </div>
 
-  <div class="summary-cards">
+  <div class="cards">
     <div class="card red">
-      <div class="card-label">ไม่ครบ</div>
-      <div class="card-value">${allShort.length} รายการ</div>
+      <div class="lbl">ไม่ครบ</div>
+      <div class="val">${allShort.length} รายการ</div>
+      <div style="font-size:11px;color:#ef4444;margin-top:2px">ขาดรวม ${totalDiff} ชิ้น</div>
     </div>
     <div class="card amber">
-      <div class="card-label">เกิน</div>
-      <div class="card-value">${allOver.length} รายการ</div>
+      <div class="lbl">เกิน</div>
+      <div class="val">${allOver.length} รายการ</div>
     </div>
   </div>
 
   ${allShort.length > 0 ? `
-  <h2 class="red">⚠ รายการที่นับไม่ครบ (${allShort.length} รายการ)</h2>
-  <table>
-    <thead><tr><th>สินค้า / Serial</th><th style="text-align:center">จำนวน</th><th style="text-align:right">ผลต่าง</th></tr></thead>
-    <tbody>${buildRows(allShort, 'short')}</tbody>
-  </table>` : ''}
+    <h2 class="red">⚠ รายการที่นับไม่ครบ — Serial ที่ไม่พบ (${allShort.length} รายการ)</h2>
+    <table>
+      <thead><tr>
+        <th>สินค้า / Serial ที่ไม่พบ</th>
+        <th style="text-align:center;width:100px">จำนวน</th>
+        <th style="text-align:right;width:80px">ผลต่าง</th>
+      </tr></thead>
+      <tbody>${buildRows(allShort, 'short')}</tbody>
+    </table>` : ''}
 
   ${allOver.length > 0 ? `
-  <h2 class="amber">↑ รายการที่นับเกิน (${allOver.length} รายการ)</h2>
-  <table>
-    <thead><tr><th>สินค้า / Serial</th><th style="text-align:center">จำนวน</th><th style="text-align:right">ผลต่าง</th></tr></thead>
-    <tbody>${buildRows(allOver, 'over')}</tbody>
-  </table>` : ''}
-
+    <h2 class="amber">↑ รายการที่นับเกิน — Serial ที่เกิน (${allOver.length} รายการ)</h2>
+    <table>
+      <thead><tr>
+        <th>สินค้า / Serial ที่เกิน</th>
+        <th style="text-align:center;width:100px">จำนวน</th>
+        <th style="text-align:right;width:80px">ผลต่าง</th>
+      </tr></thead>
+      <tbody>${buildRows(allOver, 'over')}</tbody>
+    </table>` : ''}
 </body>
 </html>`
 
@@ -143,50 +185,6 @@ function exportPDF({ allShort, allOver, items, filterDate, filterUser }) {
   win.document.close()
   win.focus()
   setTimeout(() => win.print(), 500)
-}
-
-// ── Serial Detail ─────────────────────────────────────────────────────────────
-// แสดง serial ที่ขาด (อยู่ในระบบแต่ไม่ถูกสแกน) และ serial ที่สแกนได้
-function SerialDetail({ h, items }) {
-  const [show, setShow] = useState(false)
-  const item = items.find(i => (i._id || i.id) === h.itemId)
-  if (!item?.serials?.length) return null
-
-  const allSerials = item.serials
-  // สแกนได้ = quantityAfter ตัวแรก (เรียงตามลำดับ)
-  // เนื่องจากไม่มีข้อมูลว่า serial ไหนสแกนได้จาก history โดยตรง
-  // เราแสดง serial ทั้งหมดในระบบพร้อมจำนวนที่นับ vs ระบบ
-  const diff = h.quantityBefore - h.quantityAfter // จำนวนที่ขาด (short) หรือ after - before (over)
-  const isShort = h.quantityAfter < h.quantityBefore
-
-  return (
-    <div className="mt-2">
-      <button
-        onClick={() => setShow(p => !p)}
-        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-      >
-        {show ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-        ดู Serial ในระบบ ({allSerials.length} ชิ้น)
-      </button>
-      {show && (
-        <div className="mt-2 p-2 bg-slate-900/50 rounded-lg">
-          <p className="text-xs text-slate-500 mb-1.5">
-            {isShort
-              ? `ระบบมี ${allSerials.length} serial · นับได้ ${h.quantityAfter} · ขาด ${Math.abs(diff)} ชิ้น`
-              : `ระบบมี ${allSerials.length} serial · นับได้ ${h.quantityAfter} · เกิน ${Math.abs(h.quantityAfter - h.quantityBefore)} ชิ้น`
-            }
-          </p>
-          <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
-            {allSerials.map(s => (
-              <span key={s} className="text-xs font-mono bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded border border-slate-600">
-                {s}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -229,14 +227,12 @@ export default function CountSummary() {
     return summary
   }, [filtered])
 
-  const allShort = filtered.filter(h => h.quantityAfter < h.quantityBefore)
-  const allOver  = filtered.filter(h => h.quantityAfter > h.quantityBefore)
-  const allMatch = filtered.filter(h => h.quantityAfter === h.quantityBefore)
+  const allShort  = filtered.filter(h => h.quantityAfter < h.quantityBefore)
+  const allOver   = filtered.filter(h => h.quantityAfter > h.quantityBefore)
+  const allMatch  = filtered.filter(h => h.quantityAfter === h.quantityBefore)
   const totalDiff = allShort.reduce((s, h) => s + (h.quantityBefore - h.quantityAfter), 0)
-
   const hasIssues = allShort.length > 0 || allOver.length > 0
 
-  // ── Empty state ───────────────────────────────────────────────
   if (filtered.length === 0 && filterDate === 'today') {
     return (
       <div className="space-y-4">
@@ -275,7 +271,6 @@ export default function CountSummary() {
         </h2>
         <div className="flex items-center gap-2">
           <span className="text-slate-400 text-sm">{filtered.length} รายการที่นับ</span>
-          {/* ปุ่ม Export PDF — แสดงเฉพาะตอนมีรายการผิดปกติ */}
           {hasIssues && (
             <button
               onClick={() => exportPDF({ allShort, allOver, items, filterDate, filterUser })}
@@ -374,7 +369,7 @@ export default function CountSummary() {
                         <TrendingUp className="w-3.5 h-3.5" /> เกิน {data.over.length}
                       </span>
                     )}
-                    {data.short.length === 0 && data.over.length === 0 && (
+                    {!hasIssues && (
                       <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5" /> ครบ
                       </span>
@@ -387,59 +382,58 @@ export default function CountSummary() {
 
                 {isExpanded && (
                   <div className="border-t border-slate-700/60 divide-y divide-slate-700/40">
-                    {/* ไม่ครบ */}
-                    {data.short.map(h => (
-                      <div key={h.id} className="px-4 py-3 bg-red-500/5">
-                        <div className="flex items-start gap-3">
-                          <TrendingDown className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white leading-tight">{h.itemName}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">{h.subcategory}</p>
-                            <SerialDetail h={h} items={items} />
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-sm">
-                              <span className="text-slate-400">{h.quantityBefore}</span>
-                              <span className="text-slate-600 mx-1">→</span>
-                              <span className="text-red-400 font-bold">{h.quantityAfter}</span>
-                            </p>
-                            <p className="text-xs text-red-400 font-semibold">
-                              ขาด {h.quantityBefore - h.quantityAfter} ชิ้น
-                            </p>
+                    {data.short.map(h => {
+                      const { missing } = getSerialLists(h, items)
+                      return (
+                        <div key={h.id} className="px-4 py-3 bg-red-500/5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <TrendingDown className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                <p className="text-sm font-medium text-white leading-tight">{h.itemName}</p>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5 ml-5">{h.subcategory}</p>
+                              {/* Serial ที่ไม่พบ */}
+                              {missing.length > 0 && (
+                                <div className="mt-2 ml-5">
+                                  <p className="text-xs text-red-400/70 mb-1">Serial ที่ไม่พบ ({missing.length} ชิ้น):</p>
+                                  <SerialBadges serials={missing} color="red" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm">
+                                <span className="text-slate-400">{h.quantityBefore}</span>
+                                <span className="text-slate-600 mx-1">→</span>
+                                <span className="text-red-400 font-bold">{h.quantityAfter}</span>
+                              </p>
+                              <p className="text-xs text-red-400 font-semibold">ขาด {h.quantityBefore - h.quantityAfter} ชิ้น</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                    {/* เกิน */}
+                      )
+                    })}
                     {data.over.map(h => (
-                      <div key={h.id} className="px-4 py-3 bg-amber-500/5">
-                        <div className="flex items-start gap-3">
-                          <TrendingUp className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white leading-tight">{h.itemName}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">{h.subcategory}</p>
-                            <SerialDetail h={h} items={items} />
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-sm">
-                              <span className="text-slate-400">{h.quantityBefore}</span>
-                              <span className="text-slate-600 mx-1">→</span>
-                              <span className="text-amber-400 font-bold">{h.quantityAfter}</span>
-                            </p>
-                            <p className="text-xs text-amber-400 font-semibold">
-                              เกิน {h.quantityAfter - h.quantityBefore} ชิ้น
-                            </p>
-                          </div>
+                      <div key={h.id} className="flex items-start gap-3 px-4 py-3 bg-amber-500/5">
+                        <TrendingUp className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white leading-tight">{h.itemName}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{h.subcategory}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm">
+                            <span className="text-slate-400">{h.quantityBefore}</span>
+                            <span className="text-slate-600 mx-1">→</span>
+                            <span className="text-amber-400 font-bold">{h.quantityAfter}</span>
+                          </p>
+                          <p className="text-xs text-amber-400 font-semibold">เกิน {h.quantityAfter - h.quantityBefore} ชิ้น</p>
                         </div>
                       </div>
                     ))}
-                    {/* ตรงกัน */}
                     {data.match.map(h => (
                       <div key={h.id} className="flex items-center gap-3 px-4 py-2.5">
                         <CheckCircle2 className="w-4 h-4 text-slate-600 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-slate-400 leading-tight truncate">{h.itemName}</p>
-                        </div>
+                        <p className="text-sm text-slate-400 leading-tight truncate flex-1">{h.itemName}</p>
                         <span className="text-xs text-emerald-400 shrink-0">{h.quantityAfter} ชิ้น ✓</span>
                       </div>
                     ))}
@@ -451,7 +445,7 @@ export default function CountSummary() {
         </div>
       )}
 
-      {/* รายการไม่ครบ — แสดง serial */}
+      {/* รายการไม่ครบ */}
       {allShort.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-red-400 flex items-center gap-2">
@@ -459,36 +453,46 @@ export default function CountSummary() {
             รายการที่ไม่ครบ ({allShort.length} รายการ · ขาดรวม {totalDiff} ชิ้น)
           </h3>
           <div className="bg-slate-800 border border-red-500/20 rounded-2xl overflow-hidden">
-            {allShort.map((h, i) => (
-              <div key={h.id} className={`px-4 py-3 ${i > 0 ? 'border-t border-slate-700/60' : ''}`}>
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white leading-tight">{h.itemName}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {categories[h.category]?.name || h.category} › {h.subcategory}
-                    </p>
-                    <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1">
-                      <User className="w-3 h-3" /> {h.counter} · {formatDateTime(h.timestamp)}
-                    </p>
-                    {/* Serial detail */}
-                    <SerialDetail h={h} items={items} />
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm">
-                      <span className="text-slate-400">{h.quantityBefore}</span>
-                      <span className="text-slate-600 mx-1">→</span>
-                      <span className="text-red-400 font-bold">{h.quantityAfter}</span>
-                    </p>
-                    <p className="text-xs text-red-400 font-bold">ขาด {h.quantityBefore - h.quantityAfter} ชิ้น</p>
+            {allShort.map((h, i) => {
+              const { missing } = getSerialLists(h, items)
+              return (
+                <div key={h.id} className={`px-4 py-3 ${i > 0 ? 'border-t border-slate-700/60' : ''}`}>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white leading-tight">{h.itemName}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {categories[h.category]?.name || h.category} › {h.subcategory}
+                      </p>
+                      <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1">
+                        <User className="w-3 h-3" /> {h.counter} · {formatDateTime(h.timestamp)}
+                      </p>
+                      {/* Serial ที่ไม่พบ เท่านั้น */}
+                      {missing.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-red-400/70 mb-1">
+                            Serial ที่ไม่พบ ({missing.length} ชิ้น):
+                          </p>
+                          <SerialBadges serials={missing} color="red" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm">
+                        <span className="text-slate-400">{h.quantityBefore}</span>
+                        <span className="text-slate-600 mx-1">→</span>
+                        <span className="text-red-400 font-bold">{h.quantityAfter}</span>
+                      </p>
+                      <p className="text-xs text-red-400 font-bold">ขาด {h.quantityBefore - h.quantityAfter} ชิ้น</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* รายการเกิน — แสดง serial */}
+      {/* รายการเกิน */}
       {allOver.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-amber-400 flex items-center gap-2">
@@ -507,8 +511,6 @@ export default function CountSummary() {
                     <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1">
                       <User className="w-3 h-3" /> {h.counter} · {formatDateTime(h.timestamp)}
                     </p>
-                    {/* Serial detail */}
-                    <SerialDetail h={h} items={items} />
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm">
@@ -526,7 +528,7 @@ export default function CountSummary() {
       )}
 
       {/* ครบทุกรายการ */}
-      {filtered.length > 0 && allShort.length === 0 && allOver.length === 0 && (
+      {filtered.length > 0 && !hasIssues && (
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-6 text-center">
           <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
           <p className="text-emerald-400 font-semibold">สต๊อกตรงกันทุกรายการ 🎉</p>

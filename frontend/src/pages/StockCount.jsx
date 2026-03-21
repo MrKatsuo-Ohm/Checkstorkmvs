@@ -260,6 +260,11 @@ export default function StockCount() {
         const qBefore = item.quantity;
         const qAfter  = scannedForItem.length;
         await updateItem(item.id, { ...item, quantity: qAfter });
+        // serial ที่ขาด = อยู่ในระบบแต่ไม่ถูกสแกน
+        const allItemSerials = item.serials || [];
+        const missingSerials = allItemSerials.filter(s =>
+          !scannedSerialsRef.current.has(s.toLowerCase())
+        );
         addHistoryEntry({
           type: 'update',
           itemId: item.id,
@@ -271,7 +276,9 @@ export default function StockCount() {
           priceBefore: item.price,
           priceAfter: item.price,
           counter: currentUser?.name || 'ไม่ระบุ',
-          note: note || 'นับสต๊อก'
+          note: note || 'นับสต๊อก',
+          scannedSerials: scannedForItem,
+          missingSerials,
         });
         count++;
       }
