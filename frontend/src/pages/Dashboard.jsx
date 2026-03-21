@@ -135,8 +135,12 @@ function CountProgress({ items, history, lockedSubs }) {
       </div>
 
       {pct === 100 && (
-        <div className="mt-3 flex items-center gap-2 text-emerald-400 text-sm font-medium">
-          <span>🎉</span> นับสต็อกครบทุกหมวดหมู่แล้ว!
+        <div className="mt-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3">
+          <span className="text-2xl">🎉</span>
+          <div>
+            <p className="text-emerald-400 font-semibold text-sm">นับสต็อกครบทุกหมวดหมู่แล้ว!</p>
+            <p className="text-slate-400 text-xs mt-0.5">ยอดเยี่ยม ข้อมูลสต็อกเป็นปัจจุบันทั้งหมด</p>
+          </div>
         </div>
       )}
     </div>
@@ -156,6 +160,39 @@ function StatCard({ label, value, sub, color, Icon }) {
         <div className="w-12 h-12 md:w-14 md:h-14 bg-white/10 rounded-2xl flex items-center justify-center shrink-0">
           <Icon className="w-6 h-6 md:w-7 md:h-7" />
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Weekly Stats ─────────────────────────────────────────────────────────────
+function WeeklyStats({ history }) {
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    const dateStr = d.toDateString()
+    const count = history.filter(h => new Date(h.timestamp).toDateString() === dateStr).length
+    const label = d.toLocaleDateString('th-TH', { weekday: 'short' })
+    return { label, count, isToday: i === 6 }
+  })
+  const max = Math.max(...days.map(d => d.count), 1)
+
+  return (
+    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5">
+      <h3 className="font-semibold text-sm mb-4 text-slate-300">📊 สถิติการนับ 7 วันล่าสุด</h3>
+      <div className="flex items-end gap-2 h-20">
+        {days.map((d, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div className="w-full flex items-end justify-center" style={{ height: 56 }}>
+              <div
+                className={`w-full rounded-t-lg transition-all duration-700 ${d.isToday ? 'bg-blue-500' : 'bg-slate-600'}`}
+                style={{ height: `${Math.max((d.count / max) * 100, d.count > 0 ? 8 : 2)}%` }}
+              />
+            </div>
+            <span className={`text-xs ${d.isToday ? 'text-blue-400 font-bold' : 'text-slate-500'}`}>{d.label}</span>
+            {d.count > 0 && <span className="text-xs font-bold text-white">{d.count}</span>}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -199,6 +236,9 @@ export default function Dashboard({ onNavigate, onFilterCategory, lockedSubs }) 
 
       {/* Count Progress */}
       <CountProgress items={items} history={history} lockedSubs={lockedSubs} />
+
+      {/* Weekly stats */}
+      <WeeklyStats history={history} />
 
       {/* Donut chart + category summary */}
       <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 md:p-6">

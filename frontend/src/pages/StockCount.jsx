@@ -88,7 +88,9 @@ export default function StockCount({ onLockChange } = {}) {
     return a.scanned ? 1 : -1;
   });
 
-  const filtered = searchQ.trim()
+  const filtered = searchQ === '__missing__'
+    ? serialRows.filter(r => !r.scanned)
+    : searchQ.trim()
     ? serialRows.filter(r =>
         r.serial.toLowerCase().includes(searchQ.toLowerCase()) ||
         r.item.name.toLowerCase().includes(searchQ.toLowerCase())
@@ -611,6 +613,19 @@ export default function StockCount({ onLockChange } = {}) {
             {gunMode && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
           </div>
           <span className="text-slate-500 text-sm shrink-0">{filtered.length} รายการ</span>
+          {/* ปุ่ม filter เฉพาะที่ยังไม่ได้สแกน */}
+          {scannedCount > 0 && totalSerials - scannedCount > 0 && (
+            <button
+              onClick={() => setSearchQ(searchQ === '__missing__' ? '' : '__missing__')}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium border shrink-0 transition-all ${
+                searchQ === '__missing__'
+                  ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                  : 'bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-700'
+              }`}
+            >
+              ขาด {totalSerials - scannedCount}
+            </button>
+          )}
         </div>
 
         {/* Manual input */}
