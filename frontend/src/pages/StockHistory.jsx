@@ -59,6 +59,7 @@ function MissingSerials({ entry }) {
 
 export default function StockHistory() {
   const { history, clearHistory } = useHistory()
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [filterUser, setFilterUser] = useState('all')
   const [filterType, setFilterType] = useState('all')
   const [search, setSearch] = useState('')
@@ -78,6 +79,7 @@ export default function StockHistory() {
   }
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
@@ -88,7 +90,7 @@ export default function StockHistory() {
           <span className="text-slate-400 text-sm">{filtered.length} รายการ</span>
           {history.length > 0 && (
             <button
-              onClick={() => { if (window.confirm('ล้างประวัติทั้งหมด?')) clearHistory() }}
+              onClick={() => setShowClearConfirm(true)}
               className="flex items-center gap-1 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -245,5 +247,38 @@ export default function StockHistory() {
         </>
       )}
     </div>
+  <>
+    </div>
+
+      {/* Custom confirm modal — ล้างประวัติ */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="w-12 h-12 bg-red-500/20 rounded-2xl flex items-center justify-center mb-4">
+              <Trash2 className="w-6 h-6 text-red-400" />
+            </div>
+            <h3 className="font-bold text-lg mb-1">ล้างประวัติทั้งหมด?</h3>
+            <p className="text-slate-400 text-sm mb-5">
+              ประวัติการนับสต็อกทั้งหมดจะถูกลบ และ <span className="text-white font-medium">ล็อคทุก subcategory จะถูกปลดด้วย</span> ไม่สามารถกู้คืนได้
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium text-sm transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => { clearHistory(); setShowClearConfirm(false); }}
+                className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-400 text-white rounded-xl font-medium text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                ล้างประวัติ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
