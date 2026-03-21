@@ -14,7 +14,7 @@ const getCatLabel = (key) => categories[key]?.name || key;
 // normalize lock key — ใช้เหมือนกันทุกที่เพื่อกัน mismatch
 const makeLockKey = (cat, sub) => `${cat}|${sub}`;
 
-export default function StockCount() {
+export default function StockCount({ onLockChange } = {}) {
   const { items } = useStock();
   const { currentUser } = useUser();
   const { addHistoryEntry } = useHistory();
@@ -348,7 +348,11 @@ export default function StockCount() {
       // อัปเดต lockedSubs ให้ sync ทันที
       if (selectedCat && selectedSub) {
         const lockKey = makeLockKey(selectedCat, selectedSub);
-        setLockedSubs(prev => new Set([...prev, lockKey]));
+        setLockedSubs(prev => {
+          const next = new Set([...prev, lockKey]);
+          onLockChange?.(next); // sync กลับ App.jsx สำหรับ Dashboard progress
+          return next;
+        });
       }
     } catch (err) {
       console.error('Save error:', err);

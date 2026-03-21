@@ -26,6 +26,23 @@ const VIEW_STACK = [
 function AppContent() {
   const [view, setViewState] = useState("dashboard");
   const [lockedSubs, setLockedSubs] = useState(new Set());
+
+  // โหลด lock ทั้งหมดจาก backend ตอน mount
+  useEffect(() => {
+    fetch('/api/count-lock')
+      .then(r => r.json())
+      .then(({ keys }) => {
+        if (Array.isArray(keys)) setLockedSubs(new Set(keys));
+      })
+      .catch(() => {});
+  }, []);
+
+  // ฟัง event ล้างประวัติ → reset lockedSubs
+  useEffect(() => {
+    const onClear = () => setLockedSubs(new Set());
+    window.addEventListener('count-locks-cleared', onClear);
+    return () => window.removeEventListener('count-locks-cleared', onClear);
+  }, []);
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [editingItem, setEditingItem] = useState(null);
@@ -87,7 +104,7 @@ function AppContent() {
       case "add":
         return <AddForm onSuccess={() => setView("inventory")} />;
       case "count":
-        return <StockCount />;
+        return <StockCount onLockChange={setLockedSubs} />;
       case "count-summary":
         return <CountSummary />;
       case "history":
