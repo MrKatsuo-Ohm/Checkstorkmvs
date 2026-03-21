@@ -253,15 +253,17 @@ export default function StockCount() {
     try {
       let count = 0;
       for (const item of listItems) {
-        const scannedForItem = (item.serials || []).filter(s =>
+        const allItemSerials = item.serials || [];
+        const scannedForItem = allItemSerials.filter(s =>
           scannedSerialsRef.current.has(s.toLowerCase())
         );
-        if (scannedForItem.length === 0) continue;
-        const qBefore = item.quantity;
+        // ใช้จำนวน serial ในระบบเป็น qBefore
+        const qBefore = allItemSerials.length || item.quantity;
         const qAfter  = scannedForItem.length;
+        // ข้ามเฉพาะ item ที่ไม่มี serial เลยและไม่ได้นับ
+        if (allItemSerials.length === 0 && scannedForItem.length === 0) continue;
         await updateItem(item.id, { ...item, quantity: qAfter });
         // serial ที่ขาด = อยู่ในระบบแต่ไม่ถูกสแกน
-        const allItemSerials = item.serials || [];
         const missingSerials = allItemSerials.filter(s =>
           !scannedSerialsRef.current.has(s.toLowerCase())
         );

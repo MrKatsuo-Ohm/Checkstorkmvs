@@ -2,14 +2,6 @@ import React, { useState } from 'react'
 import { Boxes, UserCheck, ChevronRight } from 'lucide-react'
 import { useUser } from '../context/UserContext'
 
-const PRESET_NAMES = [
-  'สมชาย ใจดี',
-  'สมหญิง รักงาน',
-  'วิชัย มานะ',
-  'นภา สุขใจ',
-  'ประสิทธิ์ ทำดี',
-]
-
 export default function LoginScreen() {
   const { login } = useUser()
   const [name, setName] = useState('')
@@ -64,27 +56,6 @@ export default function LoginScreen() {
               {error && (
                 <p className="mt-2 text-sm text-red-400">{error}</p>
               )}
-            </div>
-
-            {/* Quick select */}
-            <div>
-              <p className="text-xs text-slate-400 mb-2">หรือเลือกจากรายชื่อ</p>
-              <div className="flex flex-wrap gap-2">
-                {PRESET_NAMES.map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => { setName(n); setError('') }}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-all border ${
-                      name === n
-                        ? 'bg-blue-500/30 border-blue-500 text-blue-300'
-                        : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <button

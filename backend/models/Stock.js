@@ -13,15 +13,7 @@ const StockSchema = new mongoose.Schema({
   notes:        { type: String, default: '' },
 }, {
   timestamps: true,
-  versionKey: false,
-  toJSON: {                              
-    virtuals: true,
-    transform: (doc, ret) => {
-      ret.id = ret._id.toString()
-      delete ret._id
-      return ret
-    }
-  }
+  versionKey: false
 })
 
 StockSchema.index({ category: 1, subcategory: 1 })

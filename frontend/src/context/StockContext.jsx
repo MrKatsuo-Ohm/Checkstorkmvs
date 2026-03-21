@@ -17,7 +17,7 @@ export function StockProvider({ children }) {
     setLoading(true);
     try {
       const data = await stockApi.getAll();
-      setItems(Array.isArray(data) ? data : []); // ✅ แก้แล้ว
+      setItems(Array.isArray(data) ? data : []);
     } catch (err) {
       showToast("โหลดข้อมูลไม่สำเร็จ", "error");
     } finally {
@@ -27,8 +27,9 @@ export function StockProvider({ children }) {
 
   const createItem = useCallback(
     async (data) => {
-      if (items.length >= 999) {
-        showToast("ถึงขีดจำกัด 999 รายการแล้ว", "error");
+      // แก้: เพิ่มขีดจำกัดเป็น 9,999 รายการ
+      if (items.length >= 9999) {
+        showToast("ถึงขีดจำกัด 9,999 รายการแล้ว", "error");
         return false;
       }
       setLoading(true);
@@ -52,7 +53,13 @@ export function StockProvider({ children }) {
       setLoading(true);
       try {
         const updated = await stockApi.update(id, data);
-        setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
+        // แก้: รองรับทั้ง _id (MongoDB) และ id
+        setItems((prev) =>
+          prev.map((i) => {
+            const iId = i._id || i.id;
+            return iId === id ? { ...updated, id: iId } : i;
+          })
+        );
         showToast("บันทึกการแก้ไขสำเร็จ!", "success");
         return true;
       } catch (err) {
@@ -70,7 +77,7 @@ export function StockProvider({ children }) {
       setLoading(true);
       try {
         await stockApi.delete(id);
-        setItems((prev) => prev.filter((i) => i.id !== id));
+        setItems((prev) => prev.filter((i) => (i._id || i.id) !== id));
         showToast("ลบสินค้าสำเร็จ!", "success");
         return true;
       } catch (err) {
