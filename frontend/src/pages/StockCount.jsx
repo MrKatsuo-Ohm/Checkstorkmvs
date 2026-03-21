@@ -9,7 +9,6 @@ import { useUser } from "../context/UserContext";
 import { useHistory } from "../context/HistoryContext";
 import { categories } from "../utils/constants";
 
-// ใช้ categories จาก constants โดยตรง ไม่ต้อง hardcode แยก
 const getCatLabel = (key) => categories[key]?.name || key;
 
 export default function StockCount() {
@@ -17,7 +16,6 @@ export default function StockCount() {
   const { currentUser } = useUser();
   const { addHistoryEntry } = useHistory();
 
-  // ── State ────────────────────────────────────────────────────
   const [step, setStep]               = useState("category");
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedSub, setSelectedSub] = useState(null);
@@ -32,7 +30,6 @@ export default function StockCount() {
   const [gunMode, setGunMode]         = useState(false);
   const [scanResult, setScanResult]   = useState(null);
 
-  // ── Refs ─────────────────────────────────────────────────────
   const videoRef            = useRef(null);
   const codeReaderRef       = useRef(null);
   const streamRef           = useRef(null);
@@ -45,7 +42,6 @@ export default function StockCount() {
   const audioCtxRef         = useRef(null);
   const handleScanResultRef = useRef(null);
 
-  // ── Computed ─────────────────────────────────────────────────
   const cat = selectedCat ? categories[selectedCat] : null;
   const CatIcon = cat ? (LucideIcons[cat.icon] || Package) : Package;
 
@@ -106,11 +102,8 @@ export default function StockCount() {
     } catch {}
   }, []);
 
-  // ── handleScanResult ─────────────────────────────────────────
   const handleScanResult = useCallback((code) => {
     const codeLower = code.toLowerCase();
-
-    // ซ้ำ
     if (scannedSerialsRef.current.has(codeLower)) {
       beep('duplicate');
       const found = listItems.find(i =>
@@ -120,20 +113,15 @@ export default function StockCount() {
       setTimeout(() => setScanResult(null), 1500);
       return;
     }
-
-    // ค้นหาใน subcategory ที่เลือก
     const found = listItems.find(i =>
       Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower)
     );
-
     if (found) {
       beep('found');
       scannedSerialsRef.current = new Set([...scannedSerialsRef.current, codeLower]);
       setScannedSerials(new Set(scannedSerialsRef.current));
       setScanResult({ serial: code, item: found, status: 'found' });
       setTimeout(() => setScanResult(null), 1200);
-
-      // บันทึก session ไปยัง backend
       if (sessionKeyRef.current) {
         fetch(`/api/scan-session/${sessionKeyRef.current}`, {
           method: 'POST',
@@ -141,8 +129,6 @@ export default function StockCount() {
           body: JSON.stringify({ serial: codeLower })
         }).catch(() => {});
       }
-
-      // scroll ไปที่ serial ที่สแกน
       setTimeout(() => {
         document.getElementById(`serial-${codeLower}`)?.scrollIntoView({
           behavior: 'smooth', block: 'center'
@@ -155,10 +141,8 @@ export default function StockCount() {
     }
   }, [listItems, beep]);
 
-  // sync ref ทุกครั้งที่ callback เปลี่ยน
   useEffect(() => { handleScanResultRef.current = handleScanResult; }, [handleScanResult]);
 
-  // ── Gun (barcode scanner keyboard) mode ──────────────────────
   useEffect(() => {
     if (!gunMode) return;
     const onKeyDown = (e) => {
@@ -179,7 +163,6 @@ export default function StockCount() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [gunMode]);
 
-  // ── Camera scan ───────────────────────────────────────────────
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(rafIdRef.current);
     streamRef.current?.getTracks().forEach(t => t.stop());
@@ -224,11 +207,9 @@ export default function StockCount() {
 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
-  // ── Session key (เก็บ serial ที่สแกนไว้ใน backend) ───────────
   useEffect(() => {
     if (selectedCat && selectedSub) {
       sessionKeyRef.current = `${selectedCat}__${selectedSub}`.replace(/\s+/g, '_');
-      // โหลด session เก่า (ถ้ามี)
       fetch(`/api/scan-session/${sessionKeyRef.current}`)
         .then(r => r.json())
         .then(({ serials }) => {
@@ -242,7 +223,6 @@ export default function StockCount() {
     }
   }, [selectedCat, selectedSub]);
 
-  // ── Check lock ────────────────────────────────────────────────
   useEffect(() => {
     if (!sessionKeyRef.current) return;
     fetch(`/api/count-lock/${sessionKeyRef.current}`)
@@ -251,14 +231,12 @@ export default function StockCount() {
       .catch(() => {});
   }, [selectedCat, selectedSub]);
 
-  // ── Manual input ──────────────────────────────────────────────
   const handleAddManual = useCallback((raw) => {
     const codes = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
     codes.forEach(c => handleScanResultRef.current?.(c));
     setManualInput('');
   }, []);
 
-  // ── Reset ─────────────────────────────────────────────────────
   const handleReset = useCallback(() => {
     scannedSerialsRef.current = new Set();
     setScannedSerials(new Set());
@@ -269,7 +247,6 @@ export default function StockCount() {
     }
   }, []);
 
-  // ── Save ──────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (scannedSerialsRef.current.size === 0) return;
     setSaving(true);
@@ -280,10 +257,8 @@ export default function StockCount() {
           scannedSerialsRef.current.has(s.toLowerCase())
         );
         if (scannedForItem.length === 0) continue;
-
         const qBefore = item.quantity;
         const qAfter  = scannedForItem.length;
-
         await updateItem(item.id, { ...item, quantity: qAfter });
         addHistoryEntry({
           type: 'update',
@@ -301,11 +276,8 @@ export default function StockCount() {
         count++;
       }
       setSavedCount(count);
-
-      // ล็อค subcategory นี้ไว้
       if (sessionKeyRef.current) {
-        await fetch(`/api/count-lock/${sessionKeyRef.current}`, { method: 'POST' })
-          .catch(() => {});
+        await fetch(`/api/count-lock/${sessionKeyRef.current}`, { method: 'POST' }).catch(() => {});
       }
       setIsLocked(true);
     } catch (err) {
@@ -315,7 +287,6 @@ export default function StockCount() {
     }
   }, [listItems, note, currentUser, updateItem, addHistoryEntry]);
 
-  // ── Back navigation ───────────────────────────────────────────
   const goBack = useCallback(() => {
     if (step === 'scan') {
       stopCamera();
@@ -333,13 +304,11 @@ export default function StockCount() {
 
   // ── Step: category ────────────────────────────────────────────
   if (step === 'category') {
-    // หมวดที่มีสินค้าเท่านั้น
     const activeCats = Object.entries(categories).filter(([key]) =>
       items.some(i => i.category === key)
     );
-
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 overflow-y-auto">
         <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
           <ClipboardCheck className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
           นับสต๊อก — เลือกหมวดหมู่
@@ -370,10 +339,9 @@ export default function StockCount() {
   // ── Step: subcategory ─────────────────────────────────────────
   if (step === 'subcategory') {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 overflow-y-auto">
         <div className="flex items-center gap-3">
-          <button onClick={goBack}
-            className="p-2 hover:bg-slate-700 rounded-xl transition-colors">
+          <button onClick={goBack} className="p-2 hover:bg-slate-700 rounded-xl transition-colors">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -408,10 +376,14 @@ export default function StockCount() {
   }
 
   // ── Step: scan ────────────────────────────────────────────────
+  // ✅ แก้: ใช้ absolute positioning เพื่อให้ container มี height แน่นอน
+  // แทนที่จะพึ่ง h-full ซึ่งต้องการ parent มี height ที่แน่นอน
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-full min-h-0">
-      {/* Main panel */}
-      <div className="flex-1 flex flex-col min-h-0 bg-slate-800 border border-slate-700 rounded-2xl p-4">
+    <div className="absolute inset-0 flex flex-col lg:flex-row gap-4 p-4 md:p-6 overflow-hidden">
+
+      {/* Main panel — flex-col, list scroll ข้างใน */}
+      <div className="flex-1 flex flex-col min-h-0 bg-slate-800 border border-slate-700 rounded-2xl p-4 overflow-hidden">
+
         {/* Header */}
         <div className="flex items-center gap-3 mb-3 shrink-0">
           <button onClick={goBack} className="p-2 hover:bg-slate-700 rounded-xl transition-colors">
@@ -505,18 +477,18 @@ export default function StockCount() {
             </div>
             {scanResult && (
               <div className={`absolute inset-0 flex items-center justify-center ${
-                scanResult.status === 'found'     ? 'bg-emerald-500/30'
+                scanResult.status === 'found'      ? 'bg-emerald-500/30'
                 : scanResult.status === 'duplicate' ? 'bg-amber-500/30'
                 :                                     'bg-red-500/30'
               }`}>
                 <div className={`px-4 py-2 rounded-xl font-bold text-sm ${
-                  scanResult.status === 'found'     ? 'bg-emerald-500 text-white'
+                  scanResult.status === 'found'      ? 'bg-emerald-500 text-white'
                   : scanResult.status === 'duplicate' ? 'bg-amber-500 text-white'
                   :                                     'bg-red-500 text-white'
                 }`}>
-                  {scanResult.status === 'found'     ? `✓ ${scanResult.item?.name}`
-                  : scanResult.status === 'duplicate' ? `⚠ ซ้ำ: ${scanResult.serial}`
-                  :                                     `ไม่พบ: ${scanResult.serial}`}
+                  {scanResult.status === 'found'      ? `✓ ${scanResult.item?.name}`
+                  : scanResult.status === 'duplicate'  ? `⚠ ซ้ำ: ${scanResult.serial}`
+                  :                                      `ไม่พบ: ${scanResult.serial}`}
                 </div>
               </div>
             )}
@@ -526,8 +498,8 @@ export default function StockCount() {
           </div>
         )}
 
-        {/* Serial list */}
-        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 min-h-0">
+        {/* ✅ Serial list — flex-1 + overflow-y-auto ทำให้ scroll ได้ */}
+        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
           {filtered.length === 0 && (
             <div className="flex items-center justify-center h-40 text-slate-500 text-sm">
               ไม่พบรายการ
@@ -563,8 +535,8 @@ export default function StockCount() {
         </div>
       </div>
 
-      {/* Side panel สรุป */}
-      <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3">
+      {/* Side panel สรุป — mobile: scroll ได้, desktop: fixed width */}
+      <div className="w-full lg:w-72 shrink-0 flex flex-col gap-3 overflow-y-auto lg:overflow-visible">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 flex flex-col gap-2">
           <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
             <span className="text-slate-400">
