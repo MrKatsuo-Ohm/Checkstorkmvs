@@ -53,13 +53,13 @@ export function HistoryProvider({ children }) {
 
   const clearHistory = useCallback(async () => {
     setHistory([])
+    // reset lock ทันทีก่อนเลย ไม่รอ API
+    window.dispatchEvent(new CustomEvent('count-locks-cleared'))
     try {
       await Promise.all([
         fetch('/api/history', { method: 'DELETE' }),
         fetch('/api/count-lock/all', { method: 'DELETE' }),
       ])
-      // แจ้ง StockCount ให้ reset lockedSubs
-      window.dispatchEvent(new CustomEvent('count-locks-cleared'))
     } catch (err) {
       console.error('Failed to clear history:', err)
     }
