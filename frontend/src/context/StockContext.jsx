@@ -17,7 +17,11 @@ export function StockProvider({ children }) {
     setLoading(true);
     try {
       const data = await stockApi.getAll();
-      setItems(Array.isArray(data) ? data : []);
+      // normalize MongoDB _id → id เพื่อให้ทุกที่ใช้ item.id ได้เลย
+      const normalized = Array.isArray(data)
+        ? data.map(i => ({ ...i, id: i._id || i.id }))
+        : [];
+      setItems(normalized);
     } catch (err) {
       showToast("โหลดข้อมูลไม่สำเร็จ", "error");
     } finally {
@@ -35,7 +39,8 @@ export function StockProvider({ children }) {
       setLoading(true);
       try {
         const newItem = await stockApi.create(data);
-        setItems((prev) => [...prev, newItem]);
+        const normalized = { ...newItem, id: newItem._id || newItem.id };
+        setItems((prev) => [...prev, normalized]);
         showToast("เพิ่มสินค้าสำเร็จ!", "success");
         return true;
       } catch (err) {
@@ -53,12 +58,9 @@ export function StockProvider({ children }) {
       setLoading(true);
       try {
         const updated = await stockApi.update(id, data);
-        // แก้: รองรับทั้ง _id (MongoDB) และ id
+        const normalizedUpdated = { ...updated, id: updated._id || updated.id || id };
         setItems((prev) =>
-          prev.map((i) => {
-            const iId = i._id || i.id;
-            return iId === id ? { ...updated, id: iId } : i;
-          })
+          prev.map((i) => (i.id === id ? normalizedUpdated : i))
         );
         showToast("บันทึกการแก้ไขสำเร็จ!", "success");
         return true;
@@ -77,7 +79,7 @@ export function StockProvider({ children }) {
       setLoading(true);
       try {
         await stockApi.delete(id);
-        setItems((prev) => prev.filter((i) => (i._id || i.id) !== id));
+        setItems((prev) => prev.filter((i) => i.id !== id));
         showToast("ลบสินค้าสำเร็จ!", "success");
         return true;
       } catch (err) {
