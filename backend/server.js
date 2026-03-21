@@ -140,6 +140,20 @@ app.post('/api/count-lock/:key', async (req, res) => {
   }
 })
 
+// DELETE /api/count-lock/:key — ปลด lock ทีละ subcategory
+app.delete('/api/count-lock/:key', async (req, res) => {
+  if (req.params.key === 'all') {
+    // กัน route ชน — ให้ไปที่ block all ด้านล่าง
+    return res.status(400).json({ error: 'use /api/count-lock/all to clear all locks' })
+  }
+  try {
+    await CountLock.deleteOne({ key: req.params.key })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.delete('/api/count-lock/all', async (req, res) => {
   try {
     await CountLock.deleteMany({})

@@ -1,8 +1,7 @@
 import React, { useState } from 'react'
-import { ClipboardList, User, ArrowUp, ArrowDown, Minus, Plus, Search, Trash2 } from 'lucide-react'
+import { ClipboardList, User, ArrowUp, ArrowDown, Minus, Plus, Search, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { useHistory } from '../context/HistoryContext'
 import { categories } from '../utils/constants'
-import { formatCurrency } from '../utils/helpers'
 
 function formatDateTime(iso) {
   const d = new Date(iso)
@@ -25,6 +24,36 @@ function QtyDiff({ before, after }) {
         {Math.abs(diff)}
       </span>
     </span>
+  )
+}
+
+// แสดง serial ที่ขาด (missingSerials)
+function MissingSerials({ entry }) {
+  const [show, setShow] = useState(false)
+  const missing = entry.missingSerials || []
+  const isShort = entry.quantityAfter < entry.quantityBefore
+
+  if (!isShort || missing.length === 0) return null
+
+  return (
+    <div className="mt-1.5">
+      <button
+        onClick={() => setShow(p => !p)}
+        className="flex items-center gap-1 text-xs text-red-400/80 hover:text-red-300 transition-colors"
+      >
+        {show ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        Serial ที่ไม่พบ ({missing.length} ชิ้น)
+      </button>
+      {show && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {missing.map(s => (
+            <span key={s} className="text-xs font-mono bg-red-500/10 border border-red-500/30 text-red-300 px-1.5 py-0.5 rounded">
+              {s}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -107,8 +136,13 @@ export default function StockHistory() {
           <div className="md:hidden space-y-3">
             {filtered.map((entry) => {
               const cat = categories[entry.category]
+              const isShort = entry.quantityAfter < entry.quantityBefore
               return (
-                <div key={entry.id} className="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-2">
+                <div key={entry.id || entry._id}
+                  className={`bg-slate-800 border rounded-2xl p-4 space-y-2 ${
+                    isShort ? 'border-red-500/20' : 'border-slate-700'
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm leading-tight">{entry.itemName}</p>
@@ -119,8 +153,10 @@ export default function StockHistory() {
                         <Plus className="w-3 h-3" /> เพิ่มใหม่
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium shrink-0">
-                        <Minus className="w-3 h-3" /> แก้ไข
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium shrink-0 ${
+                        isShort ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                      }`}>
+                        <Minus className="w-3 h-3" /> {isShort ? 'ไม่ครบ' : 'แก้ไข'}
                       </span>
                     )}
                   </div>
@@ -135,6 +171,8 @@ export default function StockHistory() {
                     <QtyDiff before={entry.quantityBefore} after={entry.quantityAfter} />
                     {entry.note && <span className="text-slate-400 text-xs truncate max-w-[120px]">{entry.note}</span>}
                   </div>
+                  {/* Serial ที่ขาด */}
+                  <MissingSerials entry={entry} />
                 </div>
               )
             })}
@@ -150,15 +188,20 @@ export default function StockHistory() {
                     <th className="text-left py-3 px-4 font-medium">ผู้นับสต๊อก</th>
                     <th className="text-left py-3 px-4 font-medium">สินค้า</th>
                     <th className="text-left py-3 px-4 font-medium">ประเภท</th>
-                    <th className="text-left py-3 px-4 font-medium">จำนวน</th>
+                    <th className="text-left py-3 px-4 font-medium">จำนวน / Serial ที่ขาด</th>
                     <th className="text-left py-3 px-4 font-medium">หมายเหตุ</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((entry) => {
                     const cat = categories[entry.category]
+                    const isShort = entry.quantityAfter < entry.quantityBefore
                     return (
-                      <tr key={entry.id} className="border-t border-slate-700/60 hover:bg-slate-700/30 transition-colors">
+                      <tr key={entry.id || entry._id}
+                        className={`border-t border-slate-700/60 hover:bg-slate-700/30 transition-colors ${
+                          isShort ? 'bg-red-500/3' : ''
+                        }`}
+                      >
                         <td className="py-3 px-4 text-slate-400 whitespace-nowrap">{formatDateTime(entry.timestamp)}</td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
@@ -178,13 +221,16 @@ export default function StockHistory() {
                               <Plus className="w-3 h-3" /> เพิ่มใหม่
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium">
-                              <Minus className="w-3 h-3" /> แก้ไข
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                              isShort ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                            }`}>
+                              <Minus className="w-3 h-3" /> {isShort ? 'ไม่ครบ' : 'แก้ไข'}
                             </span>
                           )}
                         </td>
                         <td className="py-3 px-4">
                           <QtyDiff before={entry.quantityBefore} after={entry.quantityAfter} />
+                          <MissingSerials entry={entry} />
                         </td>
                         <td className="py-3 px-4 text-slate-400 max-w-[200px] truncate">
                           {entry.note || <span className="text-slate-600">—</span>}

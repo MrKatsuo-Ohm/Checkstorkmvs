@@ -18,6 +18,7 @@ export default function StockCount() {
 
   const [step, setStep]               = useState("category");
   const [lockedSubs, setLockedSubs]   = useState(new Set()); // subcategory ที่นับแล้วทุกเครื่อง
+  const [loadingLocks, setLoadingLocks] = useState(false);    // กำลังโหลด lock status
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedSub, setSelectedSub] = useState(null);
   const [scannedSerials, setScannedSerials] = useState(new Set());
@@ -104,34 +105,69 @@ export default function StockCount() {
   }, []);
 
   const handleScanResult = useCallback((code) => {
-    const codeLower = code.toLowerCase();
-    if (scannedSerialsRef.current.has(codeLower)) {
+    const codeLower = code.toLowerCase().trim();
+    if (!codeLower) return;
+
+    // ── หา serial ที่ตรงกัน ──────────────────────────────────────
+    // 1. exact match ก่อน
+    // 2. ถ้าพิมพ์ >= 4 ตัว → partial match (contains)
+    const findSerial = (items, query) => {
+      // exact match
+      const exact = items.find(i =>
+        Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === query)
+      );
+      if (exact) return { item: exact, matchedSerial: query };
+
+      // partial match — 4 ตัวท้าย (endsWith) ก่อน แล้วค่อย contains
+      if (query.length >= 4) {
+        for (const item of items) {
+          if (!Array.isArray(item.serials)) continue;
+          // ลอง endsWith ก่อน (แม่นกว่า)
+          const endMatch = item.serials.find(s => s.toLowerCase().endsWith(query));
+          if (endMatch) return { item, matchedSerial: endMatch.toLowerCase() };
+        }
+        for (const item of items) {
+          if (!Array.isArray(item.serials)) continue;
+          // fallback: contains
+          const anyMatch = item.serials.find(s => s.toLowerCase().includes(query));
+          if (anyMatch) return { item, matchedSerial: anyMatch.toLowerCase() };
+        }
+      }
+      return null;
+    };
+
+    // ตรวจ duplicate — ทั้ง exact และ partial
+    const alreadyScanned = [...scannedSerialsRef.current].some(s =>
+      s === codeLower || (codeLower.length >= 4 && s.includes(codeLower))
+    );
+    if (alreadyScanned) {
       beep('duplicate');
       const found = listItems.find(i =>
-        Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower)
+        Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower || s.toLowerCase().includes(codeLower))
       );
       setScanResult({ serial: code, item: found, status: 'duplicate' });
       setTimeout(() => setScanResult(null), 1500);
       return;
     }
-    const found = listItems.find(i =>
-      Array.isArray(i.serials) && i.serials.some(s => s.toLowerCase() === codeLower)
-    );
-    if (found) {
+
+    const result = findSerial(listItems, codeLower);
+    if (result) {
+      const { item: found, matchedSerial } = result;
       beep('found');
-      scannedSerialsRef.current = new Set([...scannedSerialsRef.current, codeLower]);
+      // บันทึก serial ที่ตรงเต็มๆ ไม่ใช่สิ่งที่พิมพ์
+      scannedSerialsRef.current = new Set([...scannedSerialsRef.current, matchedSerial]);
       setScannedSerials(new Set(scannedSerialsRef.current));
-      setScanResult({ serial: code, item: found, status: 'found' });
+      setScanResult({ serial: matchedSerial, item: found, status: 'found' });
       setTimeout(() => setScanResult(null), 1200);
       if (sessionKeyRef.current) {
         fetch(`/api/scan-session/${sessionKeyRef.current}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ serial: codeLower })
+          body: JSON.stringify({ serial: matchedSerial })
         }).catch(() => {});
       }
       setTimeout(() => {
-        document.getElementById(`serial-${codeLower}`)?.scrollIntoView({
+        document.getElementById(`serial-${matchedSerial}`)?.scrollIntoView({
           behavior: 'smooth', block: 'center'
         });
       }, 100);
@@ -322,6 +358,25 @@ export default function StockCount() {
     const activeCats = Object.entries(categories).filter(([key]) =>
       items.some(i => i.category === key)
     );
+
+    // Skeleton loading ตอนรอข้อมูล
+    if (items.length === 0) {
+      return (
+        <div className="space-y-4 overflow-y-auto p-4 md:p-6">
+          <div className="h-8 w-56 bg-slate-700 rounded-lg animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="bg-slate-800 border border-slate-700 rounded-2xl p-4 animate-pulse">
+                <div className="w-12 h-12 bg-slate-700 rounded-xl mx-auto mb-3" />
+                <div className="h-4 bg-slate-700 rounded mx-auto w-3/4 mb-2" />
+                <div className="h-3 bg-slate-700 rounded mx-auto w-1/2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="space-y-4 overflow-y-auto p-4 md:p-6">
         <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
@@ -336,9 +391,9 @@ export default function StockCount() {
               <button
                 key={key}
                 onClick={() => {
-                  // ไปหน้า subcategory ทันที ไม่รอ
                   setSelectedCat(key);
-                  setLockedSubs(new Set()); // reset ก่อน
+                  setLockedSubs(new Set());
+                  setLoadingLocks(true);
                   setStep('subcategory');
                   // load lock ใน background
                   const subs = cat.subcategories || [];
@@ -351,7 +406,8 @@ export default function StockCount() {
                     )
                   ).then(locks => {
                     setLockedSubs(new Set(locks.filter(Boolean)));
-                  });
+                    setLoadingLocks(false);
+                  }).catch(() => setLoadingLocks(false));
                 }}
                 className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 rounded-2xl p-4 text-center transition-all"
               >
@@ -381,6 +437,14 @@ export default function StockCount() {
             {getCatLabel(selectedCat)} — เลือกหมวดย่อย
           </h2>
         </div>
+        {/* Loading indicator ขณะโหลด lock status */}
+        {loadingLocks && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-400">
+            <span className="animate-spin border-2 border-slate-500 border-t-blue-400 rounded-full w-3 h-3 shrink-0" />
+            กำลังตรวจสอบสถานะการนับ...
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {subCatsWithItems.map(sub => {
             const subItems = items.filter(i => i.category === selectedCat && i.subcategory === sub);
@@ -514,7 +578,7 @@ export default function StockCount() {
               onKeyDown={e => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') handleAddManual(manualInput);
               }}
-              placeholder="VT0001, VT0002..."
+              placeholder="พิมพ์ 4+ ตัว เช่น 6902, H208..."
               className="flex-1 px-2 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none h-10 font-mono"
             />
             <button

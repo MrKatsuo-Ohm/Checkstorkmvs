@@ -16,6 +16,14 @@ import StockHistory from "./pages/StockHistory";
 import StockCount from "./pages/StockCount";
 import CountSummary from "./pages/CountSummary";
 
+// หน้าทั้งหมดเรียงตาม navigation hierarchy
+const VIEW_STACK = [
+  "dashboard",
+  "inventory", "add", "low-stock",
+  "count", "count-summary",
+  "history", "reports"
+];
+
 function AppContent() {
   const [view, setViewState] = useState("dashboard");
   const [search, setSearch] = useState("");
@@ -29,22 +37,35 @@ function AppContent() {
     if (currentUser) fetchItems();
   }, [currentUser, fetchItems]);
 
-  // init history
+  // init — ตั้งต้นที่ dashboard และ push sentinel entry ไว้
+  // sentinel ทำให้เมื่อกด back ครั้งแรกจะ popstate แทนที่จะออกจากแอป
   useEffect(() => {
-    window.history.replaceState({ view: "dashboard" }, "", "#dashboard");
+    // entry 0: sentinel (ป้องกันออกจากแอป)
+    window.history.replaceState({ view: "dashboard", sentinel: true }, "", "#dashboard");
+    // entry 1: dashboard จริง
+    window.history.pushState({ view: "dashboard" }, "", "#dashboard");
   }, []);
 
-  // navigate — push เฉพาะตอนเปลี่ยนหน้าระดับ App
+  // navigate — push history entry ทุกครั้งที่เปลี่ยนหน้า
   const setView = useCallback((newView) => {
     setViewState(newView);
     window.history.pushState({ view: newView }, "", `#${newView}`);
   }, []);
 
-  // popstate — รับเฉพาะ event ที่ countStep ไม่มี (StockCount จัดการ countStep เอง)
+  // popstate — จัดการ back button ทีละหน้า
   useEffect(() => {
     const onPop = (e) => {
       const s = e.state;
-      if (s?.countStep) return; // StockCount จัดการเอง
+      // StockCount จัดการ countStep เอง
+      if (s?.countStep) return;
+
+      if (s?.sentinel) {
+        // กด back ถึง sentinel = กำลังจะออกจากแอป → push dashboard กลับไป
+        window.history.pushState({ view: "dashboard" }, "", "#dashboard");
+        setViewState("dashboard");
+        return;
+      }
+
       const v = s?.view || window.location.hash.replace("#", "") || "dashboard";
       setViewState(v);
     };
@@ -60,20 +81,9 @@ function AppContent() {
   const renderPage = () => {
     switch (view) {
       case "dashboard":
-        return (
-          <Dashboard
-            onNavigate={setView}
-            onFilterCategory={setFilterCategory}
-          />
-        );
+        return <Dashboard onNavigate={setView} onFilterCategory={setFilterCategory} />;
       case "inventory":
-        return (
-          <Inventory
-            search={search}
-            filterCategory={filterCategory}
-            onEdit={setEditingItem}
-          />
-        );
+        return <Inventory search={search} filterCategory={filterCategory} onEdit={setEditingItem} />;
       case "add":
         return <AddForm onSuccess={() => setView("inventory")} />;
       case "low-stock":
@@ -87,12 +97,7 @@ function AppContent() {
       case "reports":
         return <Reports />;
       default:
-        return (
-          <Dashboard
-            onNavigate={setView}
-            onFilterCategory={setFilterCategory}
-          />
-        );
+        return <Dashboard onNavigate={setView} onFilterCategory={setFilterCategory} />;
     }
   };
 
