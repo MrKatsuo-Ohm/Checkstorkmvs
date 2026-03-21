@@ -471,6 +471,7 @@ export default function StockCount({ onLockChange } = {}) {
   // ── Step: subcategory ─────────────────────────────────────────
   if (step === 'subcategory') {
     return (
+      <>
       <div className="space-y-4 overflow-y-auto p-4 md:p-6">
         <div className="flex items-center gap-3">
           <button onClick={goBack} className="p-2 hover:bg-slate-700 rounded-xl transition-colors">
@@ -575,6 +576,7 @@ export default function StockCount({ onLockChange } = {}) {
           </div>
         </div>
       )}
+      </>
     );
   }
 
