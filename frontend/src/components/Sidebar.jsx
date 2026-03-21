@@ -1,5 +1,5 @@
 import React from 'react'
-import { LayoutDashboard, Package, PlusCircle, AlertTriangle, BarChart3, Boxes, Database, ClipboardList, LogOut, User, ScanLine, Laptop, Printer, PieChart } from 'lucide-react'
+import { LayoutDashboard, Package, PlusCircle, AlertTriangle, BarChart3, Boxes, Database, ClipboardList, LogOut, User, ScanLine, Laptop, Printer, PieChart, FileSpreadsheet } from 'lucide-react'
 import { useStock } from '../context/StockContext'
 import { useUser } from '../context/UserContext'
 import { useHistory } from '../context/HistoryContext'
@@ -9,6 +9,7 @@ const navItems = [
   { id: 'dashboard', icon: LayoutDashboard, label: 'แดชบอร์ด' },
   { id: 'inventory', icon: Package, label: 'คลังสินค้า' },
   { id: 'add', icon: PlusCircle, label: 'เพิ่มสินค้า' },
+  { id: 'import', icon: FileSpreadsheet, label: 'Import Excel/CSV' },
   { id: 'count', icon: ScanLine, label: 'นับสต๊อก' },
   { id: 'count-summary', icon: PieChart, label: 'สรุปการนับ' },
 
