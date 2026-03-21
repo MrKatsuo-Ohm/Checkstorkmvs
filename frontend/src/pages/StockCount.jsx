@@ -19,6 +19,13 @@ export default function StockCount() {
   const [step, setStep]               = useState("category");
   const [lockedSubs, setLockedSubs]   = useState(new Set()); // subcategory ที่นับแล้วทุกเครื่อง
   const [loadingLocks, setLoadingLocks] = useState(false);    // กำลังโหลด lock status
+
+  // ฟัง event จาก HistoryContext ตอนล้างประวัติ → reset lock ทันที
+  useEffect(() => {
+    const onClear = () => setLockedSubs(new Set());
+    window.addEventListener('count-locks-cleared', onClear);
+    return () => window.removeEventListener('count-locks-cleared', onClear);
+  }, []);
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedSub, setSelectedSub] = useState(null);
   const [scannedSerials, setScannedSerials] = useState(new Set());
@@ -118,7 +125,7 @@ export default function StockCount() {
       );
       if (exact) return { item: exact, matchedSerial: query };
 
-      // partial match — 4 ตัวท้าย (endsWith) ก่อน แล้วค่อย contains
+      // partial match — พิมพ์ >= 4 ตัว → endsWith ก่อน แล้วค่อย contains
       if (query.length >= 4) {
         for (const item of items) {
           if (!Array.isArray(item.serials)) continue;

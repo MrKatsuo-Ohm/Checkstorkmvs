@@ -58,6 +58,8 @@ export function HistoryProvider({ children }) {
         fetch('/api/history', { method: 'DELETE' }),
         fetch('/api/count-lock/all', { method: 'DELETE' }),
       ])
+      // แจ้ง StockCount ให้ reset lockedSubs
+      window.dispatchEvent(new CustomEvent('count-locks-cleared'))
     } catch (err) {
       console.error('Failed to clear history:', err)
     }
