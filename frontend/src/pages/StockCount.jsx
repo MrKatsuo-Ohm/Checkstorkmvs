@@ -12,7 +12,7 @@ import { categories } from "../utils/constants";
 const getCatLabel = (key) => categories[key]?.name || key;
 
 export default function StockCount() {
-  const { items, updateItem } = useStock();
+  const { items } = useStock();
   const { currentUser } = useUser();
   const { addHistoryEntry } = useHistory();
 
@@ -306,7 +306,7 @@ export default function StockCount() {
         const qAfter  = scannedForItem.length;
         // ข้ามเฉพาะ item ที่ไม่มี serial เลยและไม่ได้นับ
         if (allItemSerials.length === 0 && scannedForItem.length === 0) continue;
-        await updateItem(item.id, { ...item, quantity: qAfter });
+        // ไม่อัปเดต quantity ในคลัง — แค่บันทึกประวัติว่านับได้เท่าไหร่
         // serial ที่ขาด = อยู่ในระบบแต่ไม่ถูกสแกน
         const missingSerials = allItemSerials.filter(s =>
           !scannedSerialsRef.current.has(s.toLowerCase())
@@ -343,7 +343,7 @@ export default function StockCount() {
     } finally {
       setSaving(false);
     }
-  }, [listItems, note, currentUser, updateItem, addHistoryEntry]);
+  }, [listItems, note, currentUser, addHistoryEntry]);
 
   const goBack = useCallback(() => {
     if (step === 'scan') {
