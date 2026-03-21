@@ -335,20 +335,23 @@ export default function StockCount() {
             return (
               <button
                 key={key}
-                onClick={async () => {
+                onClick={() => {
+                  // ไปหน้า subcategory ทันที ไม่รอ
                   setSelectedCat(key);
-                  // โหลด lock ของทุก subcategory ใน category นี้
+                  setLockedSubs(new Set()); // reset ก่อน
+                  setStep('subcategory');
+                  // load lock ใน background
                   const subs = cat.subcategories || [];
-                  const locks = await Promise.all(
+                  Promise.all(
                     subs.map(sub =>
                       fetch(`/api/count-lock/${key}__${sub.replace(/\s+/g,'_')}`)
                         .then(r => r.json())
                         .then(d => d.locked ? `${key}__${sub}` : null)
                         .catch(() => null)
                     )
-                  );
-                  setLockedSubs(new Set(locks.filter(Boolean)));
-                  setStep('subcategory');
+                  ).then(locks => {
+                    setLockedSubs(new Set(locks.filter(Boolean)));
+                  });
                 }}
                 className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 rounded-2xl p-4 text-center transition-all"
               >
