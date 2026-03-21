@@ -145,10 +145,10 @@ function AppContent() {
           className={`flex-1 ${
             view === "count"
               ? "overflow-y-auto lg:relative lg:overflow-hidden"
-              : "overflow-y-auto p-4 md:p-6"
+              : "overflow-y-auto p-4 md:p-6 pd-8"
           }`}
         >
-          <div key={view} className="animate-fadeIn h-full">
+          <div key={view} className="animate-fadeIn">
             {renderPage()}
           </div>
         </main>
