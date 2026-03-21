@@ -308,7 +308,7 @@ export default function StockCount() {
       items.some(i => i.category === key)
     );
     return (
-      <div className="space-y-4 overflow-y-auto">
+      <div className="space-y-4 overflow-y-auto p-4 md:p-6">
         <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
           <ClipboardCheck className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
           นับสต๊อก — เลือกหมวดหมู่
@@ -339,7 +339,7 @@ export default function StockCount() {
   // ── Step: subcategory ─────────────────────────────────────────
   if (step === 'subcategory') {
     return (
-      <div className="space-y-4 overflow-y-auto">
+      <div className="space-y-4 overflow-y-auto p-4 md:p-6">
         <div className="flex items-center gap-3">
           <button onClick={goBack} className="p-2 hover:bg-slate-700 rounded-xl transition-colors">
             <ChevronLeft className="w-5 h-5" />
