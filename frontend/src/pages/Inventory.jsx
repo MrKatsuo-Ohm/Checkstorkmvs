@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { SearchX, Package, MapPin, Edit3, Trash2, Check, Download } from 'lucide-react'
+import { SearchX, Package, MapPin, Edit3, Trash2, Check, Download, QrCode } from 'lucide-react'
+import { printSerialQR } from '../utils/printQR'
 import * as LucideIcons from 'lucide-react'
 import { useStock } from '../context/StockContext'
 import { categories } from '../utils/constants'
@@ -231,6 +232,15 @@ export default function Inventory({ search, filterCategory, onEdit }) {
                   >
                     <Edit3 className="w-4 h-4" />แก้ไข
                   </button>
+                  {item.serials?.length > 0 && (
+                    <button
+                      onClick={() => printSerialQR(item.name, item.serials)}
+                      title="พิมพ์ QR Code"
+                      className="flex items-center justify-center px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg transition-colors"
+                    >
+                      <QrCode className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDelete(itemId)}
                     className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors ${

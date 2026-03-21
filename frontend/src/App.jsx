@@ -25,6 +25,7 @@ const VIEW_STACK = [
 
 function AppContent() {
   const [view, setViewState] = useState("dashboard");
+  const [lockedSubs, setLockedSubs] = useState(new Set());
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [editingItem, setEditingItem] = useState(null);
@@ -80,7 +81,7 @@ function AppContent() {
   const renderPage = () => {
     switch (view) {
       case "dashboard":
-        return <Dashboard onNavigate={setView} onFilterCategory={setFilterCategory} />;
+        return <Dashboard onNavigate={setView} onFilterCategory={setFilterCategory} lockedSubs={lockedSubs} />;
       case "inventory":
         return <Inventory search={search} filterCategory={filterCategory} onEdit={setEditingItem} />;
       case "add":
@@ -124,7 +125,9 @@ function AppContent() {
               : "overflow-y-auto p-4 md:p-6"
           }`}
         >
-          {renderPage()}
+          <div key={view} className="animate-fadeIn h-full">
+            {renderPage()}
+          </div>
         </main>
       </div>
       {editingItem !== null && (
