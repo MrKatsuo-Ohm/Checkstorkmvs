@@ -2,12 +2,12 @@ export const categories = {
   hardware: {
     name: 'ฮาร์ดแวร์',
     icon: 'Cpu',
-    subcategories: ['CPU', 'GPU', 'RAM PC', 'RAM Notebook', 'Motherboard', 'PSU', 'Case', 'SSD M.2', 'SSD SATA', 'HDD Internal', 'Cooling', 'Case Fan', 'Optical Drive', 'Sound Card']
+    subcategories: ['CPU', 'GPU', 'RAM PC', 'RAM Notebook', 'Motherboard', 'PSU', 'Case', 'SSD M.2', 'SSD SATA', 'HDD Internal', 'Cooling', 'Case Fan', ]
   },
   accessories: {
     name: 'อุปกรณ์เสริม',
     icon: 'Mouse',
-    subcategories: ['เมาส์', 'คีย์บอร์ด', 'หูฟัง/หูฟังไร้สาย', 'ลำโพง', 'ลำโพง Bluetooth', 'เว็บแคม', 'ไมโครโฟน/Content Creator', 'แผ่นรองเมาส์', 'Hub USB', 'Adapter Notebook', 'Adapter Smartphone', 'Cable', 'Card Reader', 'Connector/Hub', 'Controller', 'Cooler Pad', 'Joystick', 'Monitor Arm', 'Power Bank']
+    subcategories: ['เมาส์' ,'เมาส์เกมมิ่ง', 'คีย์บอร์ด','คีย์บอร์ดเกมมิ่ง', 'หูฟัง/หูฟังไร้สาย', 'ลำโพง', 'ลำโพง Bluetooth', 'เว็บแคม', 'ไมโครโฟน/Content Creator', 'แผ่นรองเมาส์', 'Hub USB', 'Adapter Notebook', 'Adapter Smartphone', 'Cable', 'Card Reader', 'Connector/Hub', 'Controller', 'Cooler Pad', 'Joystick', 'Monitor Arm', 'Power Bank' ,'Optical Drive', 'Sound Card']
   },
   monitors: {
     name: 'จอมอนิเตอร์',
