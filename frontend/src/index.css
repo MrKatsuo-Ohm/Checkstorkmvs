@@ -19,3 +19,12 @@ html, body, #root {
 .animate-fadeIn {
   animation: fadeIn 0.18s ease-out forwards;
 }
+
+/* Smooth scrolling on mobile */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+main {
+  overscroll-behavior: contain;
+}
