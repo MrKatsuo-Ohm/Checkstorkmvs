@@ -77,56 +77,66 @@ router.delete('/:id', async (req, res) => {
   }
 })
 
-// POST /api/stock/sync — sync สต็อกทั้งหมดให้ตรงกับไฟล์
+// POST /api/stock/sync — sync สต็อกทั้งหมดให้ตรงกับไฟล์ (ใช้ bulkWrite เร็วกว่า loop)
 // body: { items: [...] } — รายการทั้งหมดที่ควรมีในระบบ
 router.post('/sync', async (req, res) => {
   try {
     const { items } = req.body
     if (!Array.isArray(items)) return res.status(400).json({ error: 'items must be array' })
 
-    const results = { added: 0, updated: 0, deleted: 0, errors: [] }
+    const now = new Date()
 
     // 1. หา product_code ทั้งหมดในไฟล์
     const fileCodes = items.map(i => i.product_code).filter(Boolean)
 
-    // 2. ลบสินค้าที่ไม่มีในไฟล์ (เฉพาะที่มี product_code)
+    // 2. ลบสินค้าที่ไม่มีในไฟล์ (ครั้งเดียว)
+    let deleted = 0
     if (fileCodes.length > 0) {
-      const deleted = await Stock.deleteMany({
+      const del = await Stock.deleteMany({
         product_code: { $exists: true, $ne: '', $nin: fileCodes }
       })
-      results.deleted = deleted.deletedCount
+      deleted = del.deletedCount
     }
 
-    // 3. upsert ทุกรายการในไฟล์
-    for (const item of items) {
-      try {
-        const payload = {
-          ...item,
-          quantity: parseInt(item.quantity) || 0,
-          price: parseFloat(item.price) || 0,
-          serials: item.serials || [],
-          updatedAt: new Date()
-        }
+    // 3. bulkWrite upsert ทุกรายการพร้อมกัน (เร็วกว่า loop มาก)
+    const withCode = items.filter(i => i.product_code)
+    const withoutCode = items.filter(i => !i.product_code)
 
-        if (item.product_code) {
-          // match ด้วย product_code
-          await Stock.findOneAndUpdate(
-            { product_code: item.product_code },
-            { $set: payload },
-            { upsert: true, new: true }
-          )
-          results.updated++
-        } else {
-          // ไม่มี product_code → เพิ่มใหม่เสมอ
-          await Stock.create(payload)
-          results.added++
+    let upserted = 0
+    if (withCode.length > 0) {
+      const ops = withCode.map(item => ({
+        updateOne: {
+          filter: { product_code: item.product_code },
+          update: {
+            $set: {
+              ...item,
+              quantity: parseInt(item.quantity) || 0,
+              price: parseFloat(item.price) || 0,
+              serials: item.serials || [],
+              updatedAt: now
+            }
+          },
+          upsert: true
         }
-      } catch (err) {
-        results.errors.push({ name: item.name, error: err.message })
-      }
+      }))
+      const result = await Stock.bulkWrite(ops, { ordered: false })
+      upserted = (result.upsertedCount || 0) + (result.modifiedCount || 0)
     }
 
-    res.json({ ok: true, ...results })
+    // 4. สินค้าไม่มีรหัส → insert ทีละตัว (มักไม่มี)
+    let added = 0
+    for (const item of withoutCode) {
+      await Stock.create({
+        ...item,
+        quantity: parseInt(item.quantity) || 0,
+        price: parseFloat(item.price) || 0,
+        serials: item.serials || [],
+        updatedAt: now
+      })
+      added++
+    }
+
+    res.json({ ok: true, added, updated: upserted, deleted })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
