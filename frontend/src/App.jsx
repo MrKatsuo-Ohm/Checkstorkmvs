@@ -142,10 +142,10 @@ function AppContent() {
           onMenuToggle={() => setMobileOpen((o) => !o)}
         />
         <main
-          className={`flex-1 ${
+          className={`flex-1 overflow-y-auto ${
             view === "count"
-              ? "overflow-y-auto lg:relative lg:overflow-hidden"
-              : "overflow-y-auto p-4 md:p-6 pb-8"
+              ? "lg:relative"
+              : "p-4 md:p-6 pb-8"
           }`}
         >
           <div key={view} className={`animate-fadeIn ${view === "count" ? "h-full" : ""}`}>
