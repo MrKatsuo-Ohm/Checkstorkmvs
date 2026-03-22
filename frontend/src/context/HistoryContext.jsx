@@ -51,6 +51,18 @@ export function HistoryProvider({ children }) {
     }
   }, [])
 
+  // ฟัง event ตอน StockCount ลบ history ของ subcategory เพื่อ sync local state
+  useEffect(() => {
+    const onSubClear = (e) => {
+      const { category, subcategory } = e.detail;
+      setHistory(prev => prev.filter(h => 
+        !(h.category === category && h.subcategory === subcategory && h.type === 'update')
+      ));
+    };
+    window.addEventListener('history-subcategory-cleared', onSubClear);
+    return () => window.removeEventListener('history-subcategory-cleared', onSubClear);
+  }, []);
+
   const clearHistory = useCallback(async () => {
     setHistory([])
     // reset lock ทันทีก่อนเลย ไม่รอ API

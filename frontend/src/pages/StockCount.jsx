@@ -285,7 +285,7 @@ export default function StockCount({ onLockChange } = {}) {
 
   useEffect(() => {
     if (!sessionKeyRef.current) return;
-    fetch(`/api/count-lock/${sessionKeyRef.current}`)
+    fetch(`/api/count-lock/check?key=${encodeURIComponent(sessionKeyRef.current)}`)
       .then(r => r.json())
       .then(({ locked }) => setIsLocked(!!locked))
       .catch(() => {});
@@ -311,6 +311,16 @@ export default function StockCount({ onLockChange } = {}) {
     if (scannedSerialsRef.current.size === 0) return;
     setSaving(true);
     try {
+      // ลบ history เก่าของ subcategory นี้ก่อน — ทั้ง backend และ local state
+      if (selectedCat && selectedSub) {
+        await fetch(`/api/history/subcategory?cat=${encodeURIComponent(selectedCat)}&sub=${encodeURIComponent(selectedSub)}`, {
+          method: 'DELETE'
+        }).catch(() => {});
+        // ลบออกจาก local state ด้วย ไม่งั้น UI ยังแสดงอันเก่าอยู่
+        window.dispatchEvent(new CustomEvent('history-subcategory-cleared', {
+          detail: { category: selectedCat, subcategory: selectedSub }
+        }));
+      }
       let count = 0;
       for (const item of listItems) {
         const allItemSerials = item.serials || [];
@@ -346,7 +356,7 @@ export default function StockCount({ onLockChange } = {}) {
       }
       setSavedCount(count);
       if (sessionKeyRef.current) {
-        await fetch(`/api/count-lock/${sessionKeyRef.current}`, { method: 'POST' }).catch(() => {});
+        await fetch(`/api/count-lock/set?key=${encodeURIComponent(sessionKeyRef.current)}`, { method: 'POST' }).catch(() => {});
       }
       setIsLocked(true);
       // อัปเดต lockedSubs ให้ sync ทันที
@@ -385,7 +395,7 @@ export default function StockCount({ onLockChange } = {}) {
   const doUnlock = async () => {
     if (!unlockTarget) return;
     try {
-      await fetch(`/api/count-lock/${unlockTarget.key}`, { method: 'DELETE' });
+      await fetch(`/api/count-lock/one?key=${encodeURIComponent(unlockTarget.key)}`, { method: 'DELETE' });
       setLockedSubs(prev => {
         const next = new Set(prev);
         next.delete(unlockTarget.key);
@@ -441,7 +451,7 @@ export default function StockCount({ onLockChange } = {}) {
                   const subs = cat.subcategories || [];
                   Promise.all(
                     subs.map(sub =>
-                      fetch(`/api/count-lock/${makeLockKey(key, sub)}`)
+                      fetch(`/api/count-lock/check?key=${encodeURIComponent(makeLockKey(key, sub))}`)
                         .then(r => r.json())
                         .then(d => d.locked ? makeLockKey(key, sub) : null)
                         .catch(() => null)

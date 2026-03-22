@@ -108,6 +108,18 @@ app.post('/api/history', async (req, res) => {
   }
 })
 
+// DELETE /api/history/subcategory?cat=xxx&sub=xxx — ลบ history ของ subcategory นั้นก่อนนับใหม่
+app.delete('/api/history/subcategory', async (req, res) => {
+  try {
+    const { cat, sub } = req.query
+    if (!cat || !sub) return res.status(400).json({ error: 'cat and sub required' })
+    await History.deleteMany({ category: cat, subcategory: sub, type: 'update' })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.delete('/api/history', async (req, res) => {
   try {
     await History.deleteMany({})
@@ -129,9 +141,9 @@ app.get('/api/count-lock', async (req, res) => {
   }
 })
 
-app.get('/api/count-lock/*', async (req, res) => {
+app.get('/api/count-lock/check', async (req, res) => {
   try {
-    const key = decodeURIComponent(req.params[0])
+    const key = decodeURIComponent(req.query.key || '')
     const lock = await CountLock.findOne({ key })
     res.json({ locked: !!lock })
   } catch (err) {
@@ -139,9 +151,9 @@ app.get('/api/count-lock/*', async (req, res) => {
   }
 })
 
-app.post('/api/count-lock/*', async (req, res) => {
+app.post('/api/count-lock/set', async (req, res) => {
   try {
-    const key = decodeURIComponent(req.params[0])
+    const key = decodeURIComponent(req.query.key || '')
     await CountLock.findOneAndUpdate(
       { key },
       { $set: { lockedAt: new Date() } },
@@ -153,9 +165,9 @@ app.post('/api/count-lock/*', async (req, res) => {
   }
 })
 
-app.delete('/api/count-lock/*', async (req, res) => {
+app.delete('/api/count-lock/one', async (req, res) => {
   try {
-    const key = decodeURIComponent(req.params[0])
+    const key = decodeURIComponent(req.query.key || '')
     await CountLock.deleteOne({ key })
     res.json({ ok: true })
   } catch (err) {
