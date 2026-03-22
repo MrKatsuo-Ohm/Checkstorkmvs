@@ -425,7 +425,7 @@ export default function StockCount({ onLockChange } = {}) {
     // Skeleton loading ตอนรอข้อมูล
     if (items.length === 0) {
       return (
-        <div className="space-y-4 overflow-y-auto p-4 md:p-6">
+        <div className="space-y-4 p-4 md:p-6 pb-8">
           <div className="h-8 w-56 bg-slate-700 rounded-lg animate-pulse" />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {[...Array(8)].map((_, i) => (
@@ -441,7 +441,7 @@ export default function StockCount({ onLockChange } = {}) {
     }
 
     return (
-      <div className="space-y-4 overflow-y-auto p-4 md:p-6">
+      <div className="space-y-4 p-4 md:p-6 pb-24">
         <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
           <ClipboardCheck className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
           นับสต๊อก — เลือกหมวดหมู่
@@ -494,7 +494,7 @@ export default function StockCount({ onLockChange } = {}) {
   if (step === 'subcategory') {
     return (
       <>
-      <div className="space-y-4 overflow-y-auto p-4 md:p-6">
+      <div className="space-y-4 p-4 md:p-6 pb-24">
         <div className="flex items-center gap-3">
           <button onClick={goBack} className="p-2 hover:bg-slate-700 rounded-xl transition-colors">
             <ChevronLeft className="w-5 h-5" />
