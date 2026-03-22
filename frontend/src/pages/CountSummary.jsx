@@ -195,7 +195,20 @@ export default function CountSummary() {
   const [filterDate, setFilterDate] = useState('today')
   const [filterUser, setFilterUser] = useState('all')
 
-  const countHistory = history.filter(h => h.type === 'update')
+  // dedup: ถ้า itemId หรือ itemName+subcategory ซ้ำกัน เอาอันล่าสุดเท่านั้น
+  const deduped = (() => {
+    const seen = new Map()
+    // เรียงจากเก่าไปใหม่ก่อน แล้วค่อย overwrite ด้วยอันใหม่
+    const sorted = [...history].filter(h => h.type === 'update')
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+    sorted.forEach(h => {
+      const key = h.itemId || `${h.itemName}||${h.subcategory}`
+      seen.set(key, h)
+    })
+    return [...seen.values()]
+  })()
+
+  const countHistory = deduped
 
   const now = new Date()
   const filtered = countHistory.filter(h => {

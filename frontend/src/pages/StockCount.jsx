@@ -402,6 +402,16 @@ export default function StockCount({ onLockChange } = {}) {
         onLockChange?.(next);
         return next;
       });
+      // ลบ history เก่าของ subcategory นี้ออกทันทีตอนปลดล็อค
+      const [cat, sub] = unlockTarget.key.split('|');
+      if (cat && sub) {
+        await fetch(`/api/history/subcategory?cat=${encodeURIComponent(cat)}&sub=${encodeURIComponent(sub)}`, {
+          method: 'DELETE'
+        }).catch(() => {});
+        window.dispatchEvent(new CustomEvent('history-subcategory-cleared', {
+          detail: { category: cat, subcategory: sub }
+        }));
+      }
     } catch {}
     setUnlockTarget(null);
   };

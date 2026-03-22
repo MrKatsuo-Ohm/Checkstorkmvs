@@ -30,22 +30,20 @@ export const categories = {
     subcategories: ['Flash Drive', 'Memory Card', 'Enclosure', 'External', 'DVD External']
   },
   notebook: {
-    name: 'โน้ตบุ๊ก',
+    name: 'โน้ตบุ๊ก เดสก์ท็อป และ All-in-One',
     icon: 'Laptop',
-    subcategories: ['Notebook ทั่วไป', 'Notebook Gaming', 'Notebook Ultrathin', 'Film Notebook', 'Bag Notebook' , 'Giftbox Notebook']
+    subcategories: ['Notebook ทั่วไป', 'Notebook Gaming', 'Notebook Ultrathin', 'Film Notebook', 'Bag Notebook', 'Giftbox Notebook', 'Desktop']
   },
   peripherals: {
     name: 'อุปกรณ์ต่อพ่วง',
     icon: 'Layers',
     subcategories: ['Plug/Surge Protector']
   },
-  // แก้: เปลี่ยนจาก "Printer" (P ใหญ่) → "printer" (p เล็ก) ให้สม่ำเสมอ
   printer: {
     name: 'Printer & Ink',
     icon: 'Printer',
     subcategories: ['Printer', 'Toner/Ink', 'Scanner']
   },
-  // แก้: ลบช่องว่างนำหน้า "misc " → "misc" และแก้ icon ลบ space ต่อท้าย
   misc: {
     name: 'อุปกรณ์อื่นๆ',
     icon: 'MoreHorizontal',
