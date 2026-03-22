@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ClipboardList, User, ArrowUp, ArrowDown, Minus, Plus, Search, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { useHistory } from '../context/HistoryContext'
 import { categories } from '../utils/constants'
@@ -193,8 +194,8 @@ export default function StockHistory() {
         )}
       </div>
 
-      {showClearConfirm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      {showClearConfirm && createPortal(
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{zIndex: 9999}}>
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <div className="w-12 h-12 bg-red-500/20 rounded-2xl flex items-center justify-center mb-4">
               <Trash2 className="w-6 h-6 text-red-400" />
@@ -214,7 +215,8 @@ export default function StockHistory() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
