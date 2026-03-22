@@ -118,29 +118,8 @@ app.delete('/api/history', async (req, res) => {
 })
 
 // ── Count Lock ────────────────────────────────────────────────────────────────
-app.get('/api/count-lock/:key', async (req, res) => {
-  try {
-    const lock = await CountLock.findOne({ key: req.params.key })
-    res.json({ locked: !!lock })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
+// ใช้ wildcard (*) แทน :key เพราะ key มี | และ / ซึ่ง Express ไม่ allow ใน :param
 
-app.post('/api/count-lock/:key', async (req, res) => {
-  try {
-    await CountLock.findOneAndUpdate(
-      { key: req.params.key },
-      { $set: { lockedAt: new Date() } },
-      { upsert: true }
-    )
-    res.json({ ok: true })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
-// GET /api/count-lock — ดึง lock ทั้งหมด
 app.get('/api/count-lock', async (req, res) => {
   try {
     const locks = await CountLock.find({}, 'key')
@@ -150,14 +129,34 @@ app.get('/api/count-lock', async (req, res) => {
   }
 })
 
-// DELETE /api/count-lock/:key — ปลด lock ทีละ subcategory
-app.delete('/api/count-lock/:key', async (req, res) => {
-  if (req.params.key === 'all') {
-    // กัน route ชน — ให้ไปที่ block all ด้านล่าง
-    return res.status(400).json({ error: 'use /api/count-lock/all to clear all locks' })
-  }
+app.get('/api/count-lock/*', async (req, res) => {
   try {
-    await CountLock.deleteOne({ key: req.params.key })
+    const key = decodeURIComponent(req.params[0])
+    const lock = await CountLock.findOne({ key })
+    res.json({ locked: !!lock })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/count-lock/*', async (req, res) => {
+  try {
+    const key = decodeURIComponent(req.params[0])
+    await CountLock.findOneAndUpdate(
+      { key },
+      { $set: { lockedAt: new Date() } },
+      { upsert: true }
+    )
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.delete('/api/count-lock/*', async (req, res) => {
+  try {
+    const key = decodeURIComponent(req.params[0])
+    await CountLock.deleteOne({ key })
     res.json({ ok: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
