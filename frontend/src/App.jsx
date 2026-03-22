@@ -148,7 +148,7 @@ function AppContent() {
               : "overflow-y-auto p-4 md:p-6 pb-8"
           }`}
         >
-          <div key={view} className="animate-fadeIn">
+          <div key={view} className={`animate-fadeIn ${view === "count" ? "h-full" : ""}`}>
             {renderPage()}
           </div>
         </main>
