@@ -2,7 +2,7 @@ export const categories = {
   hardware: {
     name: 'ฮาร์ดแวร์',
     icon: 'Cpu',
-    subcategories: ['CPU', 'GPU', 'RAM PC', 'RAM Notebook', 'Motherboard', 'PSU', 'Case', 'SSD M.2', 'SSD SATA', 'SSD External', 'HDD Internal', 'HDD External', 'Cooling', 'Case Fan', 'Optical Drive', 'Sound Card']
+    subcategories: ['CPU', 'GPU', 'RAM PC', 'RAM Notebook', 'Motherboard', 'PSU', 'Case', 'SSD M.2', 'SSD SATA', 'HDD Internal', 'Cooling', 'Case Fan', 'Optical Drive', 'Sound Card']
   },
   accessories: {
     name: 'อุปกรณ์เสริม',
