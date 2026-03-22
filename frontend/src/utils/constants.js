@@ -30,7 +30,7 @@ export const categories = {
     subcategories: ['Flash Drive', 'Memory Card', 'Enclosure', 'External', 'DVD External']
   },
   notebook: {
-    name: 'โน้ตบุ๊ก & Desktop/All-in-One',
+    name: 'โน้ตบุ๊ก & เดสก์ท็อป & ออลอินวัน',
     icon: 'Laptop',
     subcategories: ['Notebook ทั่วไป', 'Notebook Gaming', 'Notebook Ultrathin', 'Film Notebook', 'Bag Notebook' ,'Giftbox Notebook' ,'Desktop' ,'All-in-One']
   },
