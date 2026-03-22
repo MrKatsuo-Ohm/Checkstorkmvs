@@ -32,7 +32,7 @@ export const categories = {
   notebook: {
     name: 'โน้ตบุ๊ก เดสก์ท็อป และ All-in-One',
     icon: 'Laptop',
-    subcategories: ['Notebook ทั่วไป', 'Notebook Gaming', 'Notebook Ultrathin', 'Film Notebook', 'Bag Notebook', 'Giftbox Notebook', 'Desktop']
+    subcategories: ['Notebook ทั่วไป', 'Notebook Gaming', 'Notebook Ultrathin', 'Film Notebook', 'Bag Notebook', 'Giftbox Notebook', 'Desktop' ,'All-in-One']
   },
   peripherals: {
     name: 'อุปกรณ์ต่อพ่วง',
