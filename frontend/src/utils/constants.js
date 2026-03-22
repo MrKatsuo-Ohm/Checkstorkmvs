@@ -2,7 +2,7 @@ export const categories = {
   hardware: {
     name: 'ฮาร์ดแวร์',
     icon: 'Cpu',
-    subcategories: ['CPU', 'GPU', 'RAM PC', 'RAM Notebook', 'Motherboard', 'PSU', 'Case', 'SSD M.2', 'SSD SATA', 'HDD Internal', 'Cooling', 'Case Fan', 'Optical Drive', 'Sound Card']
+    subcategories: ['CPU', 'GPU', 'RAM PC', 'RAM Notebook', 'Motherboard', 'PSU', 'Case', 'SSD M.2', 'SSD SATA', 'SSD External', 'HDD Internal', 'HDD External', 'Cooling', 'Case Fan', 'Optical Drive', 'Sound Card']
   },
   accessories: {
     name: 'อุปกรณ์เสริม',
@@ -30,9 +30,9 @@ export const categories = {
     subcategories: ['Flash Drive', 'Memory Card', 'Enclosure', 'External', 'DVD External']
   },
   notebook: {
-    name: 'โน้ตบุ๊ก & เดสก์ท็อป & ออลอินวัน',
+    name: 'โน้ตบุ๊ก',
     icon: 'Laptop',
-    subcategories: ['Notebook ทั่วไป', 'Notebook Gaming', 'Notebook Ultrathin', 'Film Notebook', 'Bag Notebook' ,'Giftbox Notebook' ,'Desktop' ,'All-in-One']
+    subcategories: ['Notebook ทั่วไป', 'Notebook Gaming', 'Notebook Ultrathin', 'Film Notebook', 'Bag Notebook']
   },
   peripherals: {
     name: 'อุปกรณ์ต่อพ่วง',

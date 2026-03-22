@@ -23,15 +23,16 @@ export default function StockCount({ onLockChange } = {}) {
   const [lockedSubs, setLockedSubs]   = useState(new Set()); // subcategory ที่นับแล้วทุกเครื่อง
   const [unlockTarget, setUnlockTarget] = useState(null); // { key, name } สำหรับ confirm modal
 
-  // โหลด lock ทั้งหมดจาก backend ตอน mount (รองรับ refresh)
-  useEffect(() => {
+  // โหลด lock ทั้งหมดจาก backend — ทุกครั้งที่กลับมาหน้า subcategory
+  const reloadLocks = () => {
     fetch('/api/count-lock')
       .then(r => r.json())
       .then(({ keys }) => {
         if (Array.isArray(keys)) setLockedSubs(new Set(keys));
       })
       .catch(() => {});
-  }, []);
+  };
+  useEffect(() => { reloadLocks(); }, []);
 
   // ฟัง event จาก HistoryContext ตอนล้างประวัติ → reset lock ทันที
   useEffect(() => {
@@ -374,6 +375,7 @@ export default function StockCount({ onLockChange } = {}) {
       setNote('');
       setSearchQ('');
     } else if (step === 'subcategory') {
+    reloadLocks();
       setStep('category');
       setSelectedCat(null);
     }

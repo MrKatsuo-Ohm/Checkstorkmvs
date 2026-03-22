@@ -275,7 +275,7 @@ export default function SyncForm({ onSuccess }) {
           </div>
         </>
       )}
-      <div className="flex gap-3 mt-2">
+      <div className="flex flex-wrap gap-3 mt-2 justify-center">
         <button onClick={() => { setStage('upload'); setFileRows([]); setResult(null) }}
           className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition-colors">
           Sync ใหม่
@@ -284,6 +284,10 @@ export default function SyncForm({ onSuccess }) {
           className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 rounded-xl font-medium transition-colors">
           ไปที่คลังสินค้า
         </button>
+        <a href="/api/stock/export-seed" download="seed.js"
+          className="px-5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-xl font-medium transition-colors flex items-center gap-2">
+          ⬇ ดาวน์โหลด seed.js
+        </a>
       </div>
     </div>
   )

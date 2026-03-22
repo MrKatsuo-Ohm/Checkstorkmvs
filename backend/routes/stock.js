@@ -142,4 +142,27 @@ router.post('/sync', async (req, res) => {
   }
 })
 
+// GET /api/stock/export-seed — download seed.js ที่มีข้อมูลปัจจุบันทั้งหมด
+router.get('/export-seed', async (req, res) => {
+  try {
+    const items = await Stock.find({}, { _id: 0, __v: 0 }).lean()
+    const seedContent = `const Stock = require('../models/Stock')
+
+async function seed() {
+  const data = ${JSON.stringify(items, null, 2)}
+
+  await Stock.insertMany(data)
+  console.log(\`✅ Seeded \${data.length} items\`)
+}
+
+module.exports = seed
+`
+    res.setHeader('Content-Type', 'application/javascript')
+    res.setHeader('Content-Disposition', 'attachment; filename="seed.js"')
+    res.send(seedContent)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
