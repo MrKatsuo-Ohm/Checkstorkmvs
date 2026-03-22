@@ -145,7 +145,7 @@ function AppContent() {
           className={`flex-1 overflow-y-auto ${
             view === "count"
               ? "lg:relative"
-              : "p-4 md:p-6 pb-8"
+              : "p-4 md:p-6 pb-24"
           }`}
         >
           <div key={view} className={`animate-fadeIn ${view === "count" ? "h-full" : ""}`}>
