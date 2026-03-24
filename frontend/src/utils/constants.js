@@ -17,12 +17,12 @@ export const categories = {
   networking: {
     name: 'อุปกรณ์เครือข่าย',
     icon: 'Wifi',
-    subcategories: ['Router', 'Mobile Router', 'Switch', 'Access Point', 'สาย LAN', 'LAN CARD', 'Wireless USB', 'Wireless PCI', 'IP Camera']
+    subcategories: ['อุปกรณ์เน็ตเวิร์ค', 'IP Camera' , 'สาย LAN', ]
   },
   software: {
     name: 'ซอฟต์แวร์',
     icon: 'Code',
-    subcategories: ['Windows License', 'Office License', 'Antivirus', 'อื่นๆ']
+    subcategories: ['Windows License', 'Office License', 'Antivirus', ]
   },
   storage: {
     name: 'อุปกรณ์จัดเก็บ',
