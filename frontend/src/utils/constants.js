@@ -7,7 +7,7 @@ export const categories = {
   accessories: {
     name: 'อุปกรณ์เสริม',
     icon: 'Mouse',
-    subcategories: ['เมาส์' ,'เมาส์เกมมิ่ง', 'คีย์บอร์ด','คีย์บอร์ดเกมมิ่ง', 'หูฟัง/หูฟังไร้สาย', 'ลำโพง', 'เว็บแคม', 'ไมโครโฟน/Content Creator', 'แผ่นรองเมาส์', 'Hub USB', 'Adapter Notebook', 'Adapter Smartphone', 'Cable', 'Card Reader', 'Connector/Hub', 'Controller', 'Cooler Pad', 'Monitor Arm', 'Power Bank' ,'Optical Drive', 'Sound Card']
+    subcategories: ['เมาส์' ,'เมาส์เกมมิ่ง', 'คีย์บอร์ด','คีย์บอร์ดเกมมิ่ง', 'หูฟัง/หูฟังไร้สาย', 'ลำโพง', 'เว็บแคม', 'ไมโครโฟน/Content Creator', 'แผ่นรองเมาส์', 'Hub USB', 'Adapter Notebook', 'Adapter Smartphone', 'Cable', 'Card Reader', 'Connector/Hub', 'Controller', 'Cooler Pad', 'Monitor Arm', 'Power Bank' ,'Optical Drive', 'Sound Card' , 'Stand']
   },
   monitors: {
     name: 'จอมอนิเตอร์',
